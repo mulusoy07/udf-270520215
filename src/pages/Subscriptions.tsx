@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Check, Crown, Calendar, CreditCard, Package, AlertCircle, ArrowLeft } from 'lucide-react';
+import { Check, Crown, Calendar, CreditCard, Package, AlertCircle, ArrowLeft, Home } from 'lucide-react';
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { authService } from '@/services/authService';
 import PlanChangeDialog from '@/components/PlanChangeDialog';
@@ -177,16 +177,23 @@ const Subscriptions = () => {
 
   return (
     <div className="container mx-auto p-6 max-w-4xl">
-      {/* Back Button */}
-      <div className="mb-6">
-        <Button
-          variant="ghost"
-          onClick={() => navigate('/editor')}
-          className="flex items-center gap-2 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Editor'e Geri Dön
-        </Button>
+      {/* Modern Back Button */}
+      <div className="mb-8">
+        <Card className="border-l-4 border-l-blue-500 bg-gradient-to-r from-blue-50 to-transparent dark:from-blue-950/20">
+          <CardContent className="py-4">
+            <Button
+              variant="ghost"
+              onClick={() => navigate('/editor')}
+              className="flex items-center gap-3 text-blue-600 hover:text-blue-700 hover:bg-blue-100 dark:text-blue-400 dark:hover:text-blue-300 dark:hover:bg-blue-900/20 transition-all duration-200 text-base font-medium"
+            >
+              <div className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/30">
+                <ArrowLeft className="h-4 w-4" />
+              </div>
+              <span>Editor'e Geri Dön</span>
+              <Home className="h-4 w-4 ml-auto opacity-60" />
+            </Button>
+          </CardContent>
+        </Card>
       </div>
 
       <div className="mb-8">

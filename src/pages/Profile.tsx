@@ -7,7 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { User, Mail, Calendar, Shield, Crown, Settings, UserX, ArrowLeft } from 'lucide-react';
+import { User, Mail, Calendar, Shield, Crown, Settings, UserX, ArrowLeft, Home } from 'lucide-react';
 import { toast } from "@/hooks/use-toast";
 import { authService } from '@/services/authService';
 import { useNavigate } from 'react-router-dom';
@@ -185,11 +185,21 @@ const Profile = () => {
         });
         fetchProfileData(); // Refresh profile data
       } else {
-        toast({
-          title: "Hata!",
-          description: "Profil güncellenirken bir hata oluştu.",
-          variant: "destructive"
-        });
+        // Backend'den gelen hata mesajlarını göster
+        if (result.errors) {
+          const errorMessages = Object.values(result.errors).flat();
+          toast({
+            title: "Hata!",
+            description: errorMessages.join(', '),
+            variant: "destructive"
+          });
+        } else {
+          toast({
+            title: "Hata!",
+            description: "Profil güncellenirken bir hata oluştu.",
+            variant: "destructive"
+          });
+        }
       }
     } catch (err) {
       toast({
@@ -225,11 +235,21 @@ const Profile = () => {
           confirmPassword: ''
         }));
       } else {
-        toast({
-          title: "Hata!",
-          description: "Şifre güncellenirken bir hata oluştu.",
-          variant: "destructive"
-        });
+        // Backend'den gelen hata mesajlarını göster
+        if (result.errors) {
+          const errorMessages = Object.values(result.errors).flat();
+          toast({
+            title: "Hata!",
+            description: errorMessages.join(', '),
+            variant: "destructive"
+          });
+        } else {
+          toast({
+            title: "Hata!",
+            description: "Şifre güncellenirken bir hata oluştu.",
+            variant: "destructive"
+          });
+        }
       }
     } catch (err) {
       toast({
@@ -240,6 +260,24 @@ const Profile = () => {
     } finally {
       setSavingPassword(false);
     }
+  };
+
+  // Avatar rengini isime göre oluştur
+  const getAvatarColor = (name: string) => {
+    const colors = [
+      'bg-red-500', 'bg-blue-500', 'bg-green-500', 'bg-yellow-500', 
+      'bg-purple-500', 'bg-pink-500', 'bg-indigo-500', 'bg-teal-500'
+    ];
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) {
+      hash = name.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    return colors[Math.abs(hash) % colors.length];
+  };
+
+  // İsimden baş harfleri al
+  const getInitials = (firstName: string, lastName: string) => {
+    return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
   };
 
   if (loading) {
@@ -302,16 +340,23 @@ const Profile = () => {
 
   return (
     <div className="container mx-auto p-6 max-w-4xl">
-      {/* Back Button */}
-      <div className="mb-6">
-        <Button
-          variant="ghost"
-          onClick={() => navigate('/editor')}
-          className="flex items-center gap-2 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Editor'e Geri Dön
-        </Button>
+      {/* Modern Back Button */}
+      <div className="mb-8">
+        <Card className="border-l-4 border-l-blue-500 bg-gradient-to-r from-blue-50 to-transparent dark:from-blue-950/20">
+          <CardContent className="py-4">
+            <Button
+              variant="ghost"
+              onClick={() => navigate('/editor')}
+              className="flex items-center gap-3 text-blue-600 hover:text-blue-700 hover:bg-blue-100 dark:text-blue-400 dark:hover:text-blue-300 dark:hover:bg-blue-900/20 transition-all duration-200 text-base font-medium"
+            >
+              <div className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/30">
+                <ArrowLeft className="h-4 w-4" />
+              </div>
+              <span>Editor'e Geri Dön</span>
+              <Home className="h-4 w-4 ml-auto opacity-60" />
+            </Button>
+          </CardContent>
+        </Card>
       </div>
 
       <div className="mb-8">
@@ -324,9 +369,8 @@ const Profile = () => {
         <CardHeader className="pb-4">
           <div className="flex items-center space-x-4">
             <Avatar className="h-20 w-20">
-              <AvatarImage src="/placeholder.svg" alt="Profile" />
-              <AvatarFallback className="text-lg">
-                {profileData.first_name.charAt(0)}{profileData.last_name.charAt(0)}
+              <AvatarFallback className={`text-xl font-bold text-white ${getAvatarColor(profileData.first_name + profileData.last_name)}`}>
+                {getInitials(profileData.first_name, profileData.last_name)}
               </AvatarFallback>
             </Avatar>
             <div>
