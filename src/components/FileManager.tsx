@@ -1,11 +1,11 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { Folder, File, FolderPlus, FilePlus, MoreVertical, Edit3, Trash2 } from 'lucide-react';
+import { Folder, File, FolderPlus, FilePlus, MoreVertical, Edit3, Trash2, Loader2 } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
@@ -26,26 +26,40 @@ interface FileItem {
   updated_at?: string;
 }
 
+const ITEMS_PER_PAGE = 24;
+
 const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
   const [currentPath, setCurrentPath] = useState<string[]>(['Kök Dizin']);
   const [currentFolderId, setCurrentFolderId] = useState<number | null>(null);
   const [isRenaming, setIsRenaming] = useState<number | null>(null);
   const [newName, setNewName] = useState('');
-  const [draggedItem, setDraggedItem] = useState<number | null>(null);
+  const [draggedItem, setDraggedItem] = useState<{ id: number; type: 'file' | 'folder' } | null>(null);
+  const [dragOverItem, setDragOverItem] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [files, setFiles] = useState<MediaFile[]>([]);
   const [folders, setFolders] = useState<MediaFolder[]>([]);
+  const [hasMore, setHasMore] = useState(true);
+  const [page, setPage] = useState(1);
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
-  // Load data when component opens
+  // Load data when component opens or folder changes
   useEffect(() => {
     if (open) {
-      loadData();
+      loadData(true);
     }
-  }, [open]);
+  }, [open, currentFolderId]);
 
-  const loadData = async () => {
-    setIsLoading(true);
+  const loadData = async (reset = false) => {
+    if (reset) {
+      setIsLoading(true);
+      setPage(1);
+      setHasMore(true);
+    } else {
+      setIsLoadingMore(true);
+    }
+
     try {
       const [filesResult, foldersResult] = await Promise.all([
         fileService.getFiles(),
@@ -53,7 +67,11 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
       ]);
 
       if (filesResult.success && filesResult.data) {
-        setFiles(filesResult.data);
+        if (reset) {
+          setFiles(filesResult.data);
+        } else {
+          setFiles(prev => [...prev, ...filesResult.data!]);
+        }
       } else {
         toast({
           title: "Hata",
@@ -63,13 +81,25 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
       }
 
       if (foldersResult.success && foldersResult.data) {
-        setFolders(foldersResult.data);
+        if (reset) {
+          setFolders(foldersResult.data);
+        } else {
+          setFolders(prev => [...prev, ...foldersResult.data!]);
+        }
       } else {
         toast({
           title: "Hata", 
           description: foldersResult.message || "Klasörler yüklenemedi",
           variant: "destructive"
         });
+      }
+
+      // Simulate pagination logic - in real app this would come from API
+      if (!reset) {
+        setPage(prev => prev + 1);
+        if (page >= 3) { // Simulate end of data after 3 pages
+          setHasMore(false);
+        }
       }
     } catch (error) {
       console.error('Error loading data:', error);
@@ -80,8 +110,18 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
       });
     } finally {
       setIsLoading(false);
+      setIsLoadingMore(false);
     }
   };
+
+  const handleScroll = useCallback((event: React.UIEvent<HTMLDivElement>) => {
+    const { scrollTop, scrollHeight, clientHeight } = event.currentTarget;
+    const isNearBottom = scrollTop + clientHeight >= scrollHeight - 100;
+
+    if (isNearBottom && hasMore && !isLoadingMore && !isLoading) {
+      loadData(false);
+    }
+  }, [hasMore, isLoadingMore, isLoading]);
 
   const getCurrentItems = (): FileItem[] => {
     const currentFiles = files
@@ -233,23 +273,77 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
     }
   };
 
-  const handleDragStart = (e: React.DragEvent, itemId: number) => {
-    setDraggedItem(itemId);
+  const handleDragStart = (e: React.DragEvent, itemId: number, itemType: 'file' | 'folder') => {
+    setDraggedItem({ id: itemId, type: itemType });
     e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', '');
   };
 
-  const handleDragOver = (e: React.DragEvent) => {
+  const handleDragOver = (e: React.DragEvent, targetId: number, targetType: 'file' | 'folder') => {
     e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
+    if (targetType === 'folder' && draggedItem && draggedItem.id !== targetId) {
+      e.dataTransfer.dropEffect = 'move';
+      setDragOverItem(targetId);
+    } else {
+      e.dataTransfer.dropEffect = 'none';
+    }
   };
 
-  const handleDrop = (e: React.DragEvent, targetId: number) => {
+  const handleDragLeave = () => {
+    setDragOverItem(null);
+  };
+
+  const handleDrop = async (e: React.DragEvent, targetId: number, targetType: 'file' | 'folder') => {
     e.preventDefault();
+    setDragOverItem(null);
     
-    if (draggedItem && draggedItem !== targetId) {
+    if (!draggedItem || draggedItem.id === targetId || targetType !== 'folder') {
+      setDraggedItem(null);
+      return;
+    }
+
+    try {
+      if (draggedItem.type === 'file') {
+        const result = await fileService.updateFile(draggedItem.id, { folder_id: targetId });
+        if (result.success && result.data) {
+          setFiles(prev => prev.map(file => 
+            file.id === draggedItem.id ? result.data! : file
+          ));
+          toast({
+            title: "Başarılı",
+            description: "Dosya taşındı",
+          });
+        } else {
+          toast({
+            title: "Hata",
+            description: result.message || "Dosya taşınamadı",
+            variant: "destructive"
+          });
+        }
+      } else {
+        const result = await folderService.updateFolder(draggedItem.id, { parent_id: targetId });
+        if (result.success && result.data) {
+          setFolders(prev => prev.map(folder => 
+            folder.id === draggedItem.id ? result.data! : folder
+          ));
+          toast({
+            title: "Başarılı",
+            description: "Klasör taşındı",
+          });
+        } else {
+          toast({
+            title: "Hata",
+            description: result.message || "Klasör taşınamadı",
+            variant: "destructive"
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error moving item:', error);
       toast({
-        title: "Bilgi",
-        description: "Taşıma özelliği yakında gelecek",
+        title: "Hata",
+        description: "Taşıma işlemi başarısız",
+        variant: "destructive"
       });
     }
     
@@ -277,15 +371,11 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
 
   // Skeleton Loading Component
   const FileManagerSkeleton = () => (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
-      {Array.from({ length: 6 }).map((_, index) => (
-        <div key={index} className="flex items-center gap-3 p-3 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900">
-          <Skeleton className="h-5 w-5 rounded" />
-          <div className="flex-1 space-y-1">
-            <Skeleton className="h-4 w-24" />
-            <Skeleton className="h-3 w-16" />
-          </div>
-          <Skeleton className="h-6 w-6 rounded" />
+    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
+      {Array.from({ length: 12 }).map((_, index) => (
+        <div key={index} className="flex flex-col items-center gap-2 p-3 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900">
+          <Skeleton className="h-8 w-8 rounded" />
+          <Skeleton className="h-4 w-16" />
         </div>
       ))}
     </div>
@@ -293,7 +383,7 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-4xl max-h-[80vh] bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700">
+      <DialogContent className="sm:max-w-6xl max-h-[90vh] bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700">
         <DialogHeader>
           <DialogTitle className="text-xl text-gray-900 dark:text-gray-100">Dosya Yöneticisi</DialogTitle>
         </DialogHeader>
@@ -327,105 +417,124 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
           </div>
 
           {/* File List */}
-          <ScrollArea className="flex-1 p-4 bg-white dark:bg-gray-900">
+          <ScrollArea ref={scrollAreaRef} className="flex-1 p-4 bg-white dark:bg-gray-900" onScrollCapture={handleScroll}>
             {isLoading ? (
               <FileManagerSkeleton />
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
-                {currentItems.map((item) => (
-                  <div
-                    key={`${item.type}-${item.id}`}
-                    draggable
-                    onDragStart={(e) => handleDragStart(e, item.id)}
-                    onDragOver={handleDragOver}
-                    onDrop={(e) => handleDrop(e, item.id)}
-                    className={`flex items-center gap-3 p-3 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer transition-colors bg-white dark:bg-gray-900 ${
-                      draggedItem === item.id ? 'opacity-50' : ''
-                    }`}
-                    onDoubleClick={() => {
-                      if (item.type === 'folder') {
-                        handleFolderNavigate(item.id, item.name);
-                      }
-                    }}
-                  >
-                    <div className="flex-shrink-0">
-                      {item.type === 'folder' ? (
-                        <Folder size={20} className="text-blue-500 dark:text-blue-400" />
-                      ) : (
-                        <File size={20} className="text-gray-500 dark:text-gray-400" />
-                      )}
-                    </div>
-                    
-                    <div className="flex-1 min-w-0">
-                      {isRenaming === item.id ? (
-                        <Input
-                          value={newName}
-                          onChange={(e) => setNewName(e.target.value)}
-                          onBlur={() => handleRename(item.id, item.type)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                              handleRename(item.id, item.type);
-                            } else if (e.key === 'Escape') {
-                              setIsRenaming(null);
-                              setNewName('');
-                            }
-                          }}
-                          className="h-6 text-sm bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100"
-                          autoFocus
-                        />
-                      ) : (
-                        <span className="text-sm font-medium truncate text-gray-900 dark:text-gray-100">{item.name}</span>
-                      )}
-                    </div>
-
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-6 w-6 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700">
-                          <MoreVertical size={14} />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-lg z-50">
-                        <DropdownMenuItem
-                          onClick={() => {
-                            setIsRenaming(item.id);
-                            setNewName(item.name);
-                          }}
-                          className="text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
-                        >
-                          <Edit3 size={14} className="mr-2" />
-                          Yeniden Adlandır
-                        </DropdownMenuItem>
+              <>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
+                  {currentItems.map((item) => (
+                    <div
+                      key={`${item.type}-${item.id}`}
+                      draggable
+                      onDragStart={(e) => handleDragStart(e, item.id, item.type)}
+                      onDragOver={(e) => handleDragOver(e, item.id, item.type)}
+                      onDragLeave={handleDragLeave}
+                      onDrop={(e) => handleDrop(e, item.id, item.type)}
+                      className={`flex flex-col items-center gap-2 p-3 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer transition-all bg-white dark:bg-gray-900 ${
+                        draggedItem?.id === item.id ? 'opacity-50 scale-95' : ''
+                      } ${
+                        dragOverItem === item.id && item.type === 'folder' ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' : ''
+                      }`}
+                      onDoubleClick={() => {
+                        if (item.type === 'folder') {
+                          handleFolderNavigate(item.id, item.name);
+                        }
+                      }}
+                    >
+                      <div className="flex-shrink-0">
+                        {item.type === 'folder' ? (
+                          <Folder size={32} className="text-blue-500 dark:text-blue-400" />
+                        ) : (
+                          <File size={32} className="text-gray-500 dark:text-gray-400" />
+                        )}
+                      </div>
+                      
+                      <div className="flex flex-col items-center text-center min-w-0 w-full">
+                        {isRenaming === item.id ? (
+                          <Input
+                            value={newName}
+                            onChange={(e) => setNewName(e.target.value)}
+                            onBlur={() => handleRename(item.id, item.type)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                handleRename(item.id, item.type);
+                              } else if (e.key === 'Escape') {
+                                setIsRenaming(null);
+                                setNewName('');
+                              }
+                            }}
+                            className="h-6 text-xs text-center bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100"
+                            autoFocus
+                          />
+                        ) : (
+                          <span className="text-xs font-medium text-center break-words w-full text-gray-900 dark:text-gray-100">{item.name}</span>
+                        )}
                         
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700">
-                              <Trash2 size={14} className="mr-2" />
-                              Sil
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-5 w-5 mt-1 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700">
+                              <MoreVertical size={12} />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-lg z-50">
+                            <DropdownMenuItem
+                              onClick={() => {
+                                setIsRenaming(item.id);
+                                setNewName(item.name);
+                              }}
+                              className="text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
+                            >
+                              <Edit3 size={14} className="mr-2" />
+                              Yeniden Adlandır
                             </DropdownMenuItem>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
-                            <AlertDialogHeader>
-                              <AlertDialogTitle className="text-gray-900 dark:text-gray-100">Silmeyi Onayla</AlertDialogTitle>
-                              <AlertDialogDescription className="text-gray-600 dark:text-gray-400">
-                                "{item.name}" öğesini silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600">İptal</AlertDialogCancel>
-                              <AlertDialogAction
-                                onClick={() => handleDelete(item.id, item.type)}
-                                className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
-                              >
-                                Sil
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                            
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700">
+                                  <Trash2 size={14} className="mr-2" />
+                                  Sil
+                                </DropdownMenuItem>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle className="text-gray-900 dark:text-gray-100">Silmeyi Onayla</AlertDialogTitle>
+                                  <AlertDialogDescription className="text-gray-600 dark:text-gray-400">
+                                    "{item.name}" öğesini silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600">İptal</AlertDialogCancel>
+                                  <AlertDialogAction
+                                    onClick={() => handleDelete(item.id, item.type)}
+                                    className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+                                  >
+                                    Sil
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                
+                {/* Loading More Indicator */}
+                {isLoadingMore && (
+                  <div className="flex justify-center items-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin text-gray-500" />
+                    <span className="ml-2 text-gray-500">Daha fazla yükleniyor...</span>
                   </div>
-                ))}
-              </div>
+                )}
+                
+                {!hasMore && currentItems.length > 0 && (
+                  <div className="text-center py-4 text-gray-500 dark:text-gray-400 text-sm">
+                    Tüm öğeler yüklendi
+                  </div>
+                )}
+              </>
             )}
             
             {!isLoading && currentItems.length === 0 && (

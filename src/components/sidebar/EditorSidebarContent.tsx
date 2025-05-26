@@ -1,10 +1,12 @@
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { History, Folder, FileSignature, User, Download, FolderOpen, LayoutTemplate, Settings, CreditCard, LogOut } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { useToast } from '@/hooks/use-toast';
+import { treeService, TreeItem } from '@/services/treeService';
 import SidebarSection from './SidebarSection';
 import RecentDocumentItem from './RecentDocumentItem';
 import FileTreeItem from './FileTreeItem';
@@ -30,7 +32,6 @@ interface EditorSidebarContentProps {
   setFileManagerOpen: (open: boolean) => void;
   setLoginModalOpen: (open: boolean) => void;
   recentDocs: Array<{ name: string; date: string; icon: any }>;
-  fileTree: any[];
 }
 
 const EditorSidebarContent: React.FC<EditorSidebarContentProps> = ({
@@ -52,11 +53,81 @@ const EditorSidebarContent: React.FC<EditorSidebarContentProps> = ({
   setTemplateGalleryOpen,
   setFileManagerOpen,
   setLoginModalOpen,
-  recentDocs,
-  fileTree
+  recentDocs
 }) => {
   const { isAuthenticated, logout, user } = useAuth();
   const navigate = useNavigate();
+  const { toast } = useToast();
+  const [treeItems, setTreeItems] = useState<TreeItem[]>([]);
+  const [isLoadingTree, setIsLoadingTree] = useState(false);
+
+  // Load tree structure when component mounts or user authentication changes
+  useEffect(() => {
+    if (isAuthenticated) {
+      loadTreeStructure();
+    }
+  }, [isAuthenticated]);
+
+  const loadTreeStructure = async () => {
+    setIsLoadingTree(true);
+    try {
+      const result = await treeService.getTreeStructure();
+      if (result.success && result.data) {
+        setTreeItems(result.data);
+      } else {
+        toast({
+          title: "Hata",
+          description: result.message || "Dosya yapısı yüklenemedi",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error('Error loading tree structure:', error);
+      toast({
+        title: "Hata",
+        description: "Dosya yapısı yüklenirken hata oluştu",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoadingTree(false);
+    }
+  };
+
+  const buildFileTree = (items: TreeItem[], parentId?: number): any[] => {
+    return items
+      .filter(item => item.parent_id === parentId)
+      .map(item => {
+        const children = buildFileTree(items, item.id);
+        
+        // Get appropriate icon based on type
+        let icon;
+        switch (item.type) {
+          case 'folder':
+            icon = Folder;
+            break;
+          case 'project':
+            icon = FolderOpen;
+            break;
+          case 'contract':
+            icon = FileSignature;
+            break;
+          case 'report':
+            icon = History;
+            break;
+          default:
+            icon = Folder;
+        }
+
+        return {
+          name: item.name,
+          type: children.length > 0 ? 'folder' : 'file',
+          icon,
+          children: children.length > 0 ? children : undefined
+        };
+      });
+  };
+
+  const fileTree = buildFileTree(treeItems);
 
   const handleLogout = () => {
     logout();
@@ -121,18 +192,24 @@ const EditorSidebarContent: React.FC<EditorSidebarContentProps> = ({
                 </Button>
               </div>
               
-              <div className="space-y-1">
-                {fileTree.map((item) => (
-                  <FileTreeItem
-                    key={item.name}
-                    item={item}
-                    expandedFolders={expandedFolders}
-                    onToggleFolder={onToggleFolder}
-                    onFileClick={onFileClick}
-                    onFileAction={onFileAction}
-                  />
-                ))}
-              </div>
+              {isLoadingTree ? (
+                <div className="text-center py-4">
+                  <div className="text-sm text-gray-500 dark:text-gray-400">Yükleniyor...</div>
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  {fileTree.map((item) => (
+                    <FileTreeItem
+                      key={item.name}
+                      item={item}
+                      expandedFolders={expandedFolders}
+                      onToggleFolder={onToggleFolder}
+                      onFileClick={onFileClick}
+                      onFileAction={onFileAction}
+                    />
+                  ))}
+                </div>
+              )}
             </SidebarSection>
 
             {/* İmza İşlemleri */}
