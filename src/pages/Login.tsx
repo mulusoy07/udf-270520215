@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
@@ -110,28 +109,28 @@ const LoginPage = () => {
   const currentLoading = isLoading || isSubmitting;
 
   return (
-    <div className="relative min-h-screen">
-      {/* Background blurred editor skeleton */}
-      <div className="absolute inset-0 z-0">
-        <div className="blur-sm">
+    <div className="relative min-h-screen w-full overflow-hidden">
+      {/* Background blurred editor skeleton - improved */}
+      <div className="absolute inset-0 z-0 w-full h-full">
+        <div className="w-full h-full opacity-40 blur-[2px] scale-105 transform">
           <EditorSkeleton />
         </div>
       </div>
       
-      {/* Overlay */}
-      <div className="absolute inset-0 bg-black/20 z-10"></div>
+      {/* Improved overlay with gradient */}
+      <div className="absolute inset-0 z-10 bg-gradient-to-br from-white/30 via-gray-100/40 to-white/20 dark:from-gray-900/50 dark:via-gray-800/60 dark:to-gray-900/40 backdrop-blur-[1px]"></div>
       
       {/* Login content */}
       <div className="relative z-20 min-h-screen flex items-center justify-center py-8 px-4">
         <div className="container max-w-md w-full">
           <Tabs defaultValue="login" className="w-full">
-            <TabsList className="grid w-full grid-cols-2 mb-6 bg-gray-100 dark:bg-gray-800">
+            <TabsList className="grid w-full grid-cols-2 mb-6 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-gray-200/50 dark:border-gray-700/50">
               <TabsTrigger value="login" className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-gray-900 dark:data-[state=active]:text-gray-100 text-gray-700 dark:text-gray-400">Giriş Yap</TabsTrigger>
               <TabsTrigger value="register" className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-gray-900 dark:data-[state=active]:text-gray-100 text-gray-700 dark:text-gray-400">Kayıt Ol</TabsTrigger>
             </TabsList>
             
             <TabsContent value="login">
-              <Card className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+              <Card className="bg-white/90 dark:bg-gray-800/90 border-gray-200/50 dark:border-gray-700/50 backdrop-blur-sm shadow-xl">
                 <CardHeader>
                   <CardTitle className="text-2xl text-center text-gray-800 dark:text-gray-100">Hesabınıza Giriş Yapın</CardTitle>
                   <CardDescription className="text-center text-gray-600 dark:text-gray-400">
@@ -262,7 +261,7 @@ const LoginPage = () => {
             </TabsContent>
             
             <TabsContent value="register">
-              <Card className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+              <Card className="bg-white/90 dark:bg-gray-800/90 border-gray-200/50 dark:border-gray-700/50 backdrop-blur-sm shadow-xl">
                 <CardHeader>
                   <CardTitle className="text-2xl text-center text-gray-800 dark:text-gray-100">Yeni Hesap Oluşturun</CardTitle>
                   <CardDescription className="text-center text-gray-600 dark:text-gray-400">
