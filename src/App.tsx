@@ -7,10 +7,6 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { DarkModeProvider } from "@/contexts/DarkModeContext";
 import Index from "./pages/Index";
 import Editor from "./pages/Editor";
-import NotFound from "./pages/NotFound";
-import About from "./pages/About";
-import Pricing from "./pages/Pricing";
-import Login from "./pages/Login";
 
 const queryClient = new QueryClient();
 
@@ -24,10 +20,6 @@ const App = () => (
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/editor" element={<Editor />} />
-            <Route path="/about" element={<About />} />
-            <Route path="/pricing" element={<Pricing />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
       </TooltipProvider>
