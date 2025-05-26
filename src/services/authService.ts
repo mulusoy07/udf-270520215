@@ -1,3 +1,4 @@
+
 const API_BASE_URL = 'https://b6f0-46-1-181-143.ngrok-free.app/api';
 
 export interface User {
@@ -35,10 +36,14 @@ export interface ProfileUpdateData {
 }
 
 export interface SubscriptionData {
-  expiry_date: string;
+  has_subscription: boolean;
+  plan_name: string | null;
+  plan_price: number | null;
+  currency: string;
+  expiry_date: string | null;
   remaining_days: number;
-  plan_name?: string;
-  is_active?: boolean;
+  is_active: boolean;
+  features: string[];
 }
 
 export interface PersonalInfoUpdateData {
