@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -98,6 +99,34 @@ const Subscriptions = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [planChangeDialogOpen, setPlanChangeDialogOpen] = useState(false);
+
+  // Enhanced error message extraction function
+  const extractErrorMessages = (errorData: any): string => {
+    if (!errorData) return 'Bir hata oluştu.';
+    
+    // New format: { "success": false, "errors": { "field": ["message"] } }
+    if (errorData.errors && typeof errorData.errors === 'object') {
+      const errorMessages = Object.values(errorData.errors).flat() as string[];
+      return errorMessages.join(', ');
+    }
+    
+    // Old format: { "field": ["message"] } directly
+    if (typeof errorData === 'object' && !errorData.success && !errorData.errors) {
+      const errorMessages = Object.values(errorData).flat() as string[];
+      return errorMessages.join(', ');
+    }
+    
+    // Fallback for string messages
+    if (typeof errorData === 'string') {
+      return errorData;
+    }
+    
+    if (errorData.message) {
+      return errorData.message;
+    }
+    
+    return 'Bir hata oluştu.';
+  };
 
   const fetchData = async () => {
     try {
