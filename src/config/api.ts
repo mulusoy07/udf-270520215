@@ -1,7 +1,7 @@
 
 // API configuration
 export const API_CONFIG = {
-  BASE_URL: 'https://ce34-46-1-181-143.ngrok-free.app/api',
+  BASE_URL: 'https://a998-46-1-181-143.ngrok-free.app/api',
   SESSION_CHECK_INTERVAL: 300000, // 5 dakika (milisaniye cinsinden)
   TIMEOUT: 10000, // 10 saniye
 } as const;
