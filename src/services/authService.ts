@@ -1,4 +1,3 @@
-
 const API_BASE_URL = 'https://b6f0-46-1-181-143.ngrok-free.app/api';
 
 export interface User {
@@ -40,6 +39,17 @@ export interface SubscriptionData {
   remaining_days: number;
   plan_name?: string;
   is_active?: boolean;
+}
+
+export interface PersonalInfoUpdateData {
+  first_name: string;
+  last_name: string;
+}
+
+export interface PasswordUpdateData {
+  current_password: string;
+  password: string;
+  password_confirmation: string;
 }
 
 class AuthService {
@@ -120,6 +130,98 @@ class AuthService {
     }
   }
 
+  async updatePersonalInfo(personalData: PersonalInfoUpdateData): Promise<{ success: boolean; data?: User; errors?: ValidationError | ApiError }> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/profile/update`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.token}`,
+          'ngrok-skip-browser-warning': 'true',
+        },
+        body: JSON.stringify(personalData),
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        // Update the local user data
+        if (data.data && data.data.user) {
+          this.user = data.data.user;
+          localStorage.setItem('auth_user', JSON.stringify(this.user));
+        }
+        return { success: true, data: data.data?.user };
+      } else {
+        return { success: false, errors: data };
+      }
+    } catch (error) {
+      console.error('Personal info update error:', error);
+      return { 
+        success: false, 
+        errors: { success: false, message: 'Bağlantı hatası oluştu' } 
+      };
+    }
+  }
+
+  async updatePassword(passwordData: PasswordUpdateData): Promise<{ success: boolean; errors?: ValidationError | ApiError }> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/profile/password`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.token}`,
+          'ngrok-skip-browser-warning': 'true',
+        },
+        body: JSON.stringify(passwordData),
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        return { success: true };
+      } else {
+        return { success: false, errors: data };
+      }
+    } catch (error) {
+      console.error('Password update error:', error);
+      return { 
+        success: false, 
+        errors: { success: false, message: 'Bağlantı hatası oluştu' } 
+      };
+    }
+  }
+
+  async getProfile(): Promise<{ success: boolean; data?: User; errors?: ApiError }> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/profile/show`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${this.token}`,
+          'ngrok-skip-browser-warning': 'true',
+        },
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        // Update the local user data
+        if (data.data && data.data.user) {
+          this.user = data.data.user;
+          localStorage.setItem('auth_user', JSON.stringify(this.user));
+        }
+        return { success: true, data: data.data?.user };
+      } else {
+        return { success: false, errors: data };
+      }
+    } catch (error) {
+      console.error('Profile fetch error:', error);
+      return { 
+        success: false, 
+        errors: { success: false, message: 'Bağlantı hatası oluştu' } 
+      };
+    }
+  }
+
   async updateProfile(profileData: ProfileUpdateData): Promise<{ success: boolean; data?: User; errors?: ValidationError | ApiError }> {
     try {
       const response = await fetch(`${API_BASE_URL}/profile`, {
@@ -155,7 +257,7 @@ class AuthService {
 
   async getSubscription(): Promise<{ success: boolean; data?: SubscriptionData; errors?: ApiError }> {
     try {
-      const response = await fetch(`${API_BASE_URL}/subscriptions`, {
+      const response = await fetch(`${API_BASE_URL}/subscription/show`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${this.token}`,

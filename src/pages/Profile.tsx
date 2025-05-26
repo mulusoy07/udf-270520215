@@ -9,20 +9,28 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft, Save, User, Lock, Eye, EyeOff } from 'lucide-react';
+import { authService } from '@/services/authService';
 
 const ProfilePage = () => {
   const { user, isAuthenticated, isLoading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [formData, setFormData] = useState({
+  
+  // Personal information form
+  const [personalData, setPersonalData] = useState({
     firstName: '',
     lastName: '',
-    email: '',
+    email: ''
+  });
+  const [isUpdatingPersonal, setIsUpdatingPersonal] = useState(false);
+
+  // Password form
+  const [passwordData, setPasswordData] = useState({
     currentPassword: '',
     newPassword: '',
     confirmPassword: ''
   });
-  const [isSaving, setIsSaving] = useState(false);
+  const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -34,85 +42,131 @@ const ProfilePage = () => {
     }
 
     if (user) {
-      setFormData(prev => ({
-        ...prev,
+      setPersonalData({
         firstName: user.first_name || '',
         lastName: user.last_name || '',
         email: user.email || ''
-      }));
+      });
     }
   }, [user, isAuthenticated, isLoading, navigate]);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePersonalDataChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
+    setPersonalData(prev => ({
       ...prev,
       [name]: value
     }));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handlePasswordDataChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setPasswordData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const handlePersonalInfoSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsSaving(true);
+    setIsUpdatingPersonal(true);
 
     try {
-      // Validate password fields if changing password
-      if (formData.newPassword) {
-        if (formData.newPassword !== formData.confirmPassword) {
-          toast({
-            title: "Hata",
-            description: "Yeni şifreler eşleşmiyor.",
-            variant: "destructive"
-          });
-          setIsSaving(false);
-          return;
-        }
+      const result = await authService.updatePersonalInfo({
+        first_name: personalData.firstName,
+        last_name: personalData.lastName
+      });
 
-        if (formData.newPassword.length < 6) {
-          toast({
-            title: "Hata", 
-            description: "Şifre en az 6 karakter olmalıdır.",
-            variant: "destructive"
-          });
-          setIsSaving(false);
-          return;
-        }
-
-        if (!formData.currentPassword) {
-          toast({
-            title: "Hata",
-            description: "Mevcut şifrenizi girmelisiniz.",
-            variant: "destructive"
-          });
-          setIsSaving(false);
-          return;
-        }
-      }
-
-      // Here you would make the API call to update profile
-      // For now, we'll simulate the API call
-      setTimeout(() => {
+      if (result.success) {
         toast({
           title: "Başarılı",
-          description: "Profil bilgileriniz güncellendi."
+          description: "Kişisel bilgileriniz güncellendi."
         });
-        setIsSaving(false);
-        // Clear password fields
-        setFormData(prev => ({
-          ...prev,
-          currentPassword: '',
-          newPassword: '',
-          confirmPassword: ''
-        }));
-      }, 1000);
-
+      } else {
+        toast({
+          title: "Hata",
+          description: result.errors?.message || "Kişisel bilgiler güncellenirken bir hata oluştu.",
+          variant: "destructive"
+        });
+      }
     } catch (error) {
       toast({
         title: "Hata",
-        description: "Profil güncellenirken bir hata oluştu.",
+        description: "Kişisel bilgiler güncellenirken bir hata oluştu.",
         variant: "destructive"
       });
-      setIsSaving(false);
+    } finally {
+      setIsUpdatingPersonal(false);
+    }
+  };
+
+  const handlePasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsUpdatingPassword(true);
+
+    try {
+      // Validate password fields
+      if (passwordData.newPassword !== passwordData.confirmPassword) {
+        toast({
+          title: "Hata",
+          description: "Yeni şifreler eşleşmiyor.",
+          variant: "destructive"
+        });
+        setIsUpdatingPassword(false);
+        return;
+      }
+
+      if (passwordData.newPassword.length < 6) {
+        toast({
+          title: "Hata", 
+          description: "Şifre en az 6 karakter olmalıdır.",
+          variant: "destructive"
+        });
+        setIsUpdatingPassword(false);
+        return;
+      }
+
+      if (!passwordData.currentPassword) {
+        toast({
+          title: "Hata",
+          description: "Mevcut şifrenizi girmelisiniz.",
+          variant: "destructive"
+        });
+        setIsUpdatingPassword(false);
+        return;
+      }
+
+      const result = await authService.updatePassword({
+        current_password: passwordData.currentPassword,
+        password: passwordData.newPassword,
+        password_confirmation: passwordData.confirmPassword
+      });
+
+      if (result.success) {
+        toast({
+          title: "Başarılı",
+          description: "Şifreniz güncellendi."
+        });
+        // Clear password fields
+        setPasswordData({
+          currentPassword: '',
+          newPassword: '',
+          confirmPassword: ''
+        });
+      } else {
+        toast({
+          title: "Hata",
+          description: result.errors?.message || "Şifre güncellenirken bir hata oluştu.",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Hata",
+        description: "Şifre güncellenirken bir hata oluştu.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsUpdatingPassword(false);
     }
   };
 
@@ -157,13 +211,13 @@ const ProfilePage = () => {
                   <div>
                     <CardTitle className="text-gray-900 dark:text-gray-100">Kişisel Bilgiler</CardTitle>
                     <CardDescription className="text-gray-600 dark:text-gray-400">
-                      Ad, soyad ve e-posta bilgilerinizi güncelleyin
+                      Ad, soyad bilgilerinizi güncelleyin
                     </CardDescription>
                   </div>
                 </div>
               </CardHeader>
               <CardContent className="pt-6">
-                <form onSubmit={handleSubmit} className="space-y-6">
+                <form onSubmit={handlePersonalInfoSubmit} className="space-y-6">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-2">
                       <Label htmlFor="firstName" className="text-gray-700 dark:text-gray-300 font-medium">Ad</Label>
@@ -171,8 +225,8 @@ const ProfilePage = () => {
                         id="firstName"
                         name="firstName"
                         type="text"
-                        value={formData.firstName}
-                        onChange={handleChange}
+                        value={personalData.firstName}
+                        onChange={handlePersonalDataChange}
                         className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 focus:border-blue-500 dark:focus:border-blue-400"
                         required
                       />
@@ -183,8 +237,8 @@ const ProfilePage = () => {
                         id="lastName"
                         name="lastName"
                         type="text"
-                        value={formData.lastName}
-                        onChange={handleChange}
+                        value={personalData.lastName}
+                        onChange={handlePersonalDataChange}
                         className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 focus:border-blue-500 dark:focus:border-blue-400"
                         required
                       />
@@ -197,7 +251,7 @@ const ProfilePage = () => {
                       id="email"
                       name="email"
                       type="email"
-                      value={formData.email}
+                      value={personalData.email}
                       className="bg-gray-100 dark:bg-gray-600 border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400"
                       disabled
                     />
@@ -208,6 +262,26 @@ const ProfilePage = () => {
                   </div>
                 </form>
               </CardContent>
+              <CardFooter className="border-t border-gray-200 dark:border-gray-700 pt-6">
+                <Button 
+                  type="submit" 
+                  onClick={handlePersonalInfoSubmit}
+                  className="w-full md:w-auto bg-blue-600 hover:bg-blue-700 text-white px-8"
+                  disabled={isUpdatingPersonal}
+                >
+                  {isUpdatingPersonal ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      Güncelleniyor...
+                    </>
+                  ) : (
+                    <>
+                      <Save size={16} className="mr-2" />
+                      Kişisel Bilgileri Güncelle
+                    </>
+                  )}
+                </Button>
+              </CardFooter>
             </Card>
           </div>
 
@@ -248,7 +322,7 @@ const ProfilePage = () => {
               </div>
             </CardHeader>
             <CardContent className="pt-6">
-              <div className="space-y-6 max-w-md">
+              <form onSubmit={handlePasswordSubmit} className="space-y-6 max-w-md">
                 <div className="space-y-2">
                   <Label htmlFor="currentPassword" className="text-gray-700 dark:text-gray-300 font-medium">Mevcut Şifre</Label>
                   <div className="relative">
@@ -256,8 +330,8 @@ const ProfilePage = () => {
                       id="currentPassword"
                       name="currentPassword"
                       type={showCurrentPassword ? "text" : "password"}
-                      value={formData.currentPassword}
-                      onChange={handleChange}
+                      value={passwordData.currentPassword}
+                      onChange={handlePasswordDataChange}
                       className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 focus:border-blue-500 dark:focus:border-blue-400 pr-10"
                       placeholder="Mevcut şifrenizi girin"
                     />
@@ -282,8 +356,8 @@ const ProfilePage = () => {
                       id="newPassword"
                       name="newPassword"
                       type={showNewPassword ? "text" : "password"}
-                      value={formData.newPassword}
-                      onChange={handleChange}
+                      value={passwordData.newPassword}
+                      onChange={handlePasswordDataChange}
                       className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 focus:border-blue-500 dark:focus:border-blue-400 pr-10"
                       placeholder="En az 6 karakter"
                     />
@@ -306,8 +380,8 @@ const ProfilePage = () => {
                       id="confirmPassword"
                       name="confirmPassword"
                       type={showConfirmPassword ? "text" : "password"}
-                      value={formData.confirmPassword}
-                      onChange={handleChange}
+                      value={passwordData.confirmPassword}
+                      onChange={handlePasswordDataChange}
                       className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 focus:border-blue-500 dark:focus:border-blue-400 pr-10"
                       placeholder="Yeni şifrenizi tekrar girin"
                     />
@@ -322,24 +396,24 @@ const ProfilePage = () => {
                     </Button>
                   </div>
                 </div>
-              </div>
+              </form>
             </CardContent>
             <CardFooter className="border-t border-gray-200 dark:border-gray-700 pt-6">
               <Button 
                 type="submit" 
-                onClick={handleSubmit}
-                className="w-full md:w-auto bg-blue-600 hover:bg-blue-700 text-white px-8"
-                disabled={isSaving}
+                onClick={handlePasswordSubmit}
+                className="w-full md:w-auto bg-red-600 hover:bg-red-700 text-white px-8"
+                disabled={isUpdatingPassword}
               >
-                {isSaving ? (
+                {isUpdatingPassword ? (
                   <>
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                    Kaydediliyor...
+                    Güncelleniyor...
                   </>
                 ) : (
                   <>
-                    <Save size={16} className="mr-2" />
-                    Değişiklikleri Kaydet
+                    <Lock size={16} className="mr-2" />
+                    Şifreyi Güncelle
                   </>
                 )}
               </Button>
