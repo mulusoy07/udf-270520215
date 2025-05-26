@@ -25,7 +25,7 @@ interface EditorSidebarContentProps {
   onToggleFolder: (folderName: string) => void;
   onDocumentClick: (fileName: string) => void;
   onFileClick: (fileName: string) => void;
-  onFileAction: (action: string, fileName: string) => void;
+  onFileAction: (action: string, fileName: string, color?: string) => void;
   setMobileSignatureOpen: (open: boolean) => void;
   setESignatureOpen: (open: boolean) => void;
   setTemplateGalleryOpen: (open: boolean) => void;
@@ -113,7 +113,8 @@ const EditorSidebarContent: React.FC<EditorSidebarContentProps> = ({
       type: node.type === 'folder' ? 'folder' : 'file',
       icon: node.type === 'folder' ? Folder : FileSignature,
       hasChildren: node.children && node.children.length > 0,
-      children: node.children ? node.children.map(convertTreeNodeToFileTreeItem) : undefined
+      children: node.children ? node.children.map(convertTreeNodeToFileTreeItem) : undefined,
+      color: node.color
     };
   };
 
@@ -130,6 +131,17 @@ const EditorSidebarContent: React.FC<EditorSidebarContentProps> = ({
 
   const handleSubscriptionsClick = () => {
     navigate('/subscriptions');
+  };
+
+  const handleFileActionWithColor = (action: string, fileName: string, color?: string) => {
+    if (action === 'renk' && color) {
+      toast({
+        title: "Renk Güncellendi",
+        description: `${fileName} için renk seçildi: ${color}`,
+      });
+    } else {
+      onFileAction(action, fileName, color);
+    }
   };
 
   return (
@@ -195,7 +207,7 @@ const EditorSidebarContent: React.FC<EditorSidebarContentProps> = ({
                       expandedFolders={expandedFolders}
                       onToggleFolder={onToggleFolder}
                       onFileClick={onFileClick}
-                      onFileAction={onFileAction}
+                      onFileAction={handleFileActionWithColor}
                     />
                   ))}
                 </div>

@@ -7,6 +7,7 @@ export interface TreeNode {
   type: 'file' | 'folder';
   size?: number;
   url?: string;
+  color?: string;
   children?: TreeNode[];
 }
 
@@ -50,6 +51,7 @@ export const fileService = {
     folder_id?: number;
     content?: string;
     type?: string;
+    color?: string;
   }): Promise<{ success: boolean; data?: any; message?: string }> => {
     try {
       const response = await fetch(`${API_BASE_URL}/files`, {
@@ -79,6 +81,7 @@ export const fileService = {
     name?: string;
     folder_id?: number;
     content?: string;
+    color?: string;
   }): Promise<{ success: boolean; data?: any; message?: string }> => {
     try {
       const response = await fetch(`${API_BASE_URL}/files/${id}`, {
@@ -134,6 +137,7 @@ export const folderService = {
   createFolder: async (data: {
     name: string;
     parent_id?: number;
+    color?: string;
   }): Promise<{ success: boolean; data?: any; message?: string }> => {
     try {
       const response = await fetch(`${API_BASE_URL}/folders`, {
@@ -162,6 +166,7 @@ export const folderService = {
   updateFolder: async (id: number, data: {
     name?: string;
     parent_id?: number;
+    color?: string;
   }): Promise<{ success: boolean; data?: any; message?: string }> => {
     try {
       const response = await fetch(`${API_BASE_URL}/folders/${id}`, {

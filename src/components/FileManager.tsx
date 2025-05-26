@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { Folder, File, FolderPlus, FilePlus, MoreVertical, Edit3, Trash2, Loader2 } from 'lucide-react';
+import { Folder, File, FolderPlus, FilePlus, MoreVertical, Edit3, Trash2, Loader2, Palette } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
@@ -21,7 +21,8 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
   const [currentFolderId, setCurrentFolderId] = useState<number | null>(null);
   const [isRenaming, setIsRenaming] = useState<number | null>(null);
   const [newName, setNewName] = useState('');
-  const [draggedItem, setDraggedItem] = useState<{ id: number; type: 'file' | 'folder' } | null>(null);
+  const [selectedColor, setSelectedColor] = useState<string>('#3b82f6');
+  const [draggedItem, setDraggedItem] = useState<{ id: number; type: 'file' | 'folder'; name: string; color?: string } | null>(null);
   const [dragOverItem, setDragOverItem] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [fileTree, setFileTree] = useState<TreeNode[]>([]);
@@ -177,6 +178,40 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
     setNewName('');
   };
 
+  const handleColorChange = async (id: number, type: 'file' | 'folder', color: string) => {
+    if (type === 'file') {
+      const result = await fileService.updateFile(id, { color });
+      if (result.success) {
+        await refreshData();
+        toast({
+          title: "Başarılı",
+          description: "Dosya rengi güncellendi",
+        });
+      } else {
+        toast({
+          title: "Hata",
+          description: result.message || "Renk güncellenemedi",
+          variant: "destructive"
+        });
+      }
+    } else {
+      const result = await folderService.updateFolder(id, { color });
+      if (result.success) {
+        await refreshData();
+        toast({
+          title: "Başarılı",
+          description: "Klasör rengi güncellendi",
+        });
+      } else {
+        toast({
+          title: "Hata",
+          description: result.message || "Renk güncellenemedi",
+          variant: "destructive"
+        });
+      }
+    }
+  };
+
   const handleDelete = async (id: number, type: 'file' | 'folder') => {
     if (type === 'file') {
       const result = await fileService.deleteFile(id);
@@ -211,8 +246,13 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
     }
   };
 
-  const handleDragStart = (e: React.DragEvent, itemId: number, itemType: 'file' | 'folder') => {
-    setDraggedItem({ id: itemId, type: itemType });
+  const handleDragStart = (e: React.DragEvent, item: TreeNode) => {
+    setDraggedItem({ 
+      id: item.id, 
+      type: item.type, 
+      name: item.name,
+      color: item.color 
+    });
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('text/plain', '');
   };
@@ -242,7 +282,11 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
 
     try {
       if (draggedItem.type === 'file') {
-        const result = await fileService.updateFile(draggedItem.id, { folder_id: targetId });
+        const result = await fileService.updateFile(draggedItem.id, { 
+          folder_id: targetId,
+          name: draggedItem.name,
+          color: draggedItem.color 
+        });
         if (result.success) {
           await refreshData();
           toast({
@@ -257,7 +301,11 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
           });
         }
       } else {
-        const result = await folderService.updateFolder(draggedItem.id, { parent_id: targetId });
+        const result = await folderService.updateFolder(draggedItem.id, { 
+          parent_id: targetId,
+          name: draggedItem.name,
+          color: draggedItem.color 
+        });
         if (result.success) {
           await refreshData();
           toast({
@@ -381,7 +429,7 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
                       <div
                         key={`${item.type}-${item.id}`}
                         draggable
-                        onDragStart={(e) => handleDragStart(e, item.id, item.type)}
+                        onDragStart={(e) => handleDragStart(e, item)}
                         onDragOver={(e) => handleDragOver(e, item.id, item.type)}
                         onDragLeave={handleDragLeave}
                         onDrop={(e) => handleDrop(e, item.id, item.type)}
@@ -394,9 +442,17 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
                       >
                         <div className="flex-shrink-0">
                           {item.type === 'folder' ? (
-                            <Folder size={32} className={folderColorClass} />
+                            <Folder 
+                              size={32} 
+                              className={folderColorClass} 
+                              style={{ color: item.color || undefined }}
+                            />
                           ) : (
-                            <File size={32} className="text-gray-500 dark:text-gray-400" />
+                            <File 
+                              size={32} 
+                              className="text-gray-500 dark:text-gray-400"
+                              style={{ color: item.color || undefined }}
+                            />
                           )}
                         </div>
                         
@@ -448,6 +504,38 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
                                 <Edit3 size={14} className="mr-2" />
                                 Yeniden Adlandır
                               </DropdownMenuItem>
+
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700">
+                                    <Palette size={14} className="mr-2" />
+                                    Renk Seç
+                                  </DropdownMenuItem>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle className="text-gray-900 dark:text-gray-100">Renk Seç</AlertDialogTitle>
+                                    <AlertDialogDescription className="text-gray-600 dark:text-gray-400">
+                                      {item.name} için bir renk seçin.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <div className="grid grid-cols-8 gap-2 p-4">
+                                    {['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#6b7280', '#000000'].map((color) => (
+                                      <button
+                                        key={color}
+                                        className="w-8 h-8 rounded-full border-2 border-gray-300 hover:border-gray-500"
+                                        style={{ backgroundColor: color }}
+                                        onClick={() => {
+                                          handleColorChange(item.id, item.type, color);
+                                        }}
+                                      />
+                                    ))}
+                                  </div>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600">İptal</AlertDialogCancel>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
                               
                               <AlertDialog>
                                 <AlertDialogTrigger asChild>
