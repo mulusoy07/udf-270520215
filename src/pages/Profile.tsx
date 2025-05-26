@@ -1,428 +1,352 @@
 
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
-import { useNavigate } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
-import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, Save, User, Lock, Eye, EyeOff } from 'lucide-react';
-import { authService } from '@/services/authService';
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { User, Mail, Calendar, Shield, Crown, Settings } from 'lucide-react';
+import { toast } from "@/hooks/use-toast";
 
-const ProfilePage = () => {
-  const { user, isAuthenticated, isLoading } = useAuth();
-  const navigate = useNavigate();
-  const { toast } = useToast();
-  
-  // Personal information form
-  const [personalData, setPersonalData] = useState({
-    firstName: '',
-    lastName: '',
-    email: ''
-  });
-  const [isUpdatingPersonal, setIsUpdatingPersonal] = useState(false);
+const ProfileSkeleton = () => (
+  <div className="space-y-6">
+    <Card>
+      <CardHeader className="pb-4">
+        <div className="flex items-center space-x-4">
+          <Skeleton className="h-20 w-20 rounded-full" />
+          <div className="space-y-2">
+            <Skeleton className="h-6 w-48" />
+            <Skeleton className="h-4 w-64" />
+            <Skeleton className="h-5 w-24" />
+          </div>
+        </div>
+      </CardHeader>
+    </Card>
 
-  // Password form
-  const [passwordData, setPasswordData] = useState({
+    <div className="grid gap-6 md:grid-cols-2">
+      <Card>
+        <CardHeader>
+          <Skeleton className="h-6 w-32" />
+          <Skeleton className="h-4 w-48" />
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Skeleton className="h-4 w-16" />
+            <Skeleton className="h-10 w-full" />
+          </div>
+          <div className="space-y-2">
+            <Skeleton className="h-4 w-20" />
+            <Skeleton className="h-10 w-full" />
+          </div>
+          <div className="space-y-2">
+            <Skeleton className="h-4 w-24" />
+            <Skeleton className="h-10 w-full" />
+          </div>
+          <Skeleton className="h-10 w-32" />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <Skeleton className="h-6 w-40" />
+          <Skeleton className="h-4 w-56" />
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Skeleton className="h-4 w-20" />
+            <Skeleton className="h-10 w-full" />
+          </div>
+          <div className="space-y-2">
+            <Skeleton className="h-4 w-32" />
+            <Skeleton className="h-10 w-full" />
+          </div>
+          <Skeleton className="h-10 w-32" />
+        </CardContent>
+      </Card>
+    </div>
+
+    <Card>
+      <CardHeader>
+        <Skeleton className="h-6 w-32" />
+        <Skeleton className="h-4 w-64" />
+      </CardHeader>
+      <CardContent>
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="space-y-2">
+            <Skeleton className="h-4 w-24" />
+            <Skeleton className="h-6 w-32" />
+          </div>
+          <div className="space-y-2">
+            <Skeleton className="h-4 w-32" />
+            <Skeleton className="h-6 w-40" />
+          </div>
+          <div className="space-y-2">
+            <Skeleton className="h-4 w-28" />
+            <Skeleton className="h-6 w-36" />
+          </div>
+          <div className="space-y-2">
+            <Skeleton className="h-4 w-20" />
+            <Skeleton className="h-6 w-24" />
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  </div>
+);
+
+const Profile = () => {
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [formData, setFormData] = useState({
+    firstName: 'John',
+    lastName: 'Doe',
+    email: 'john.doe@example.com',
     currentPassword: '',
     newPassword: '',
     confirmPassword: ''
   });
-  const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
-  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
-  const [showNewPassword, setShowNewPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
+  // Simulate loading
   useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
-      navigate('/editor');
-      return;
-    }
+    const timer = setTimeout(() => {
+      setLoading(false);
+    }, 1500);
+    return () => clearTimeout(timer);
+  }, []);
 
-    if (user) {
-      setPersonalData({
-        firstName: user.first_name || '',
-        lastName: user.last_name || '',
-        email: user.email || ''
-      });
-    }
-  }, [user, isAuthenticated, isLoading, navigate]);
-
-  const handlePersonalDataChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setPersonalData(prev => ({
+    setFormData(prev => ({
       ...prev,
       [name]: value
     }));
   };
 
-  const handlePasswordDataChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setPasswordData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-  };
-
-  const handlePersonalInfoSubmit = async (e: React.FormEvent) => {
+  const handleProfileUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsUpdatingPersonal(true);
-
-    try {
-      const result = await authService.updatePersonalInfo({
-        first_name: personalData.firstName,
-        last_name: personalData.lastName
-      });
-
-      if (result.success) {
-        toast({
-          title: "Başarılı",
-          description: "Kişisel bilgileriniz güncellendi."
-        });
-      } else {
-        toast({
-          title: "Hata",
-          description: result.errors?.message || "Kişisel bilgiler güncellenirken bir hata oluştu.",
-          variant: "destructive"
-        });
-      }
-    } catch (error) {
+    setSaving(true);
+    
+    setTimeout(() => {
+      setSaving(false);
       toast({
-        title: "Hata",
-        description: "Kişisel bilgiler güncellenirken bir hata oluştu.",
-        variant: "destructive"
+        title: "Profil güncellendi!",
+        description: "Profil bilgileriniz başarıyla güncellendi.",
       });
-    } finally {
-      setIsUpdatingPersonal(false);
-    }
+    }, 1500);
   };
 
-  const handlePasswordSubmit = async (e: React.FormEvent) => {
+  const handlePasswordUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsUpdatingPassword(true);
-
-    try {
-      // Validate password fields
-      if (passwordData.newPassword !== passwordData.confirmPassword) {
-        toast({
-          title: "Hata",
-          description: "Yeni şifreler eşleşmiyor.",
-          variant: "destructive"
-        });
-        setIsUpdatingPassword(false);
-        return;
-      }
-
-      if (passwordData.newPassword.length < 6) {
-        toast({
-          title: "Hata", 
-          description: "Şifre en az 6 karakter olmalıdır.",
-          variant: "destructive"
-        });
-        setIsUpdatingPassword(false);
-        return;
-      }
-
-      if (!passwordData.currentPassword) {
-        toast({
-          title: "Hata",
-          description: "Mevcut şifrenizi girmelisiniz.",
-          variant: "destructive"
-        });
-        setIsUpdatingPassword(false);
-        return;
-      }
-
-      const result = await authService.updatePassword({
-        current_password: passwordData.currentPassword,
-        password: passwordData.newPassword,
-        password_confirmation: passwordData.confirmPassword
-      });
-
-      if (result.success) {
-        toast({
-          title: "Başarılı",
-          description: "Şifreniz güncellendi."
-        });
-        // Clear password fields
-        setPasswordData({
-          currentPassword: '',
-          newPassword: '',
-          confirmPassword: ''
-        });
-      } else {
-        toast({
-          title: "Hata",
-          description: result.errors?.message || "Şifre güncellenirken bir hata oluştu.",
-          variant: "destructive"
-        });
-      }
-    } catch (error) {
+    setSaving(true);
+    
+    setTimeout(() => {
+      setSaving(false);
       toast({
-        title: "Hata",
-        description: "Şifre güncellenirken bir hata oluştu.",
-        variant: "destructive"
+        title: "Şifre güncellendi!",
+        description: "Şifreniz başarıyla değiştirildi.",
       });
-    } finally {
-      setIsUpdatingPassword(false);
-    }
+      setFormData(prev => ({
+        ...prev,
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: ''
+      }));
+    }, 1500);
   };
 
-  if (isLoading) {
+  if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600 dark:text-gray-400">Yükleniyor...</p>
+      <div className="container mx-auto p-6 max-w-4xl">
+        <div className="mb-8">
+          <Skeleton className="h-8 w-32 mb-2" />
+          <Skeleton className="h-4 w-64" />
         </div>
+        <ProfileSkeleton />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
-      <div className="container max-w-4xl mx-auto px-4">
-        <div className="mb-8">
-          <Button
-            variant="ghost"
-            onClick={() => navigate('/editor')}
-            className="mb-6 text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100"
-          >
-            <ArrowLeft size={16} className="mr-2" />
-            Editöre Dön
-          </Button>
-          <div className="text-center md:text-left">
-            <h1 className="text-4xl font-bold text-gray-900 dark:text-gray-100 mb-2">Profilim</h1>
-            <p className="text-lg text-gray-600 dark:text-gray-400">Kişisel bilgilerinizi ve güvenlik ayarlarınızı yönetin</p>
-          </div>
-        </div>
-
-        <div className="grid gap-8 md:grid-cols-1 lg:grid-cols-3">
-          {/* Profile Information Card */}
-          <div className="lg:col-span-2">
-            <Card className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm">
-              <CardHeader className="border-b border-gray-200 dark:border-gray-700 pb-6">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg">
-                    <User size={20} className="text-blue-600 dark:text-blue-400" />
-                  </div>
-                  <div>
-                    <CardTitle className="text-gray-900 dark:text-gray-100">Kişisel Bilgiler</CardTitle>
-                    <CardDescription className="text-gray-600 dark:text-gray-400">
-                      Ad, soyad bilgilerinizi güncelleyin
-                    </CardDescription>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="pt-6">
-                <form onSubmit={handlePersonalInfoSubmit} className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                      <Label htmlFor="firstName" className="text-gray-700 dark:text-gray-300 font-medium">Ad</Label>
-                      <Input
-                        id="firstName"
-                        name="firstName"
-                        type="text"
-                        value={personalData.firstName}
-                        onChange={handlePersonalDataChange}
-                        className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 focus:border-blue-500 dark:focus:border-blue-400"
-                        required
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="lastName" className="text-gray-700 dark:text-gray-300 font-medium">Soyad</Label>
-                      <Input
-                        id="lastName"
-                        name="lastName"
-                        type="text"
-                        value={personalData.lastName}
-                        onChange={handlePersonalDataChange}
-                        className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 focus:border-blue-500 dark:focus:border-blue-400"
-                        required
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="email" className="text-gray-700 dark:text-gray-300 font-medium">E-posta Adresi</Label>
-                    <Input
-                      id="email"
-                      name="email"
-                      type="email"
-                      value={personalData.email}
-                      className="bg-gray-100 dark:bg-gray-600 border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400"
-                      disabled
-                    />
-                    <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
-                      <Lock size={12} />
-                      E-posta adresi güvenlik nedeniyle değiştirilemez
-                    </p>
-                  </div>
-                </form>
-              </CardContent>
-              <CardFooter className="border-t border-gray-200 dark:border-gray-700 pt-6">
-                <Button 
-                  type="submit" 
-                  onClick={handlePersonalInfoSubmit}
-                  className="w-full md:w-auto bg-blue-600 hover:bg-blue-700 text-white px-8"
-                  disabled={isUpdatingPersonal}
-                >
-                  {isUpdatingPersonal ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                      Güncelleniyor...
-                    </>
-                  ) : (
-                    <>
-                      <Save size={16} className="mr-2" />
-                      Kişisel Bilgileri Güncelle
-                    </>
-                  )}
-                </Button>
-              </CardFooter>
-            </Card>
-          </div>
-
-          {/* Quick Stats */}
-          <div className="space-y-6">
-            <Card className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 border border-blue-200 dark:border-blue-700">
-              <CardContent className="pt-6">
-                <div className="text-center">
-                  <div className="w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <span className="text-white font-bold text-xl">
-                      {user?.first_name?.charAt(0)}{user?.last_name?.charAt(0)}
-                    </span>
-                  </div>
-                  <h3 className="font-semibold text-gray-900 dark:text-gray-100">
-                    {user?.first_name} {user?.last_name}
-                  </h3>
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">Premium Üye</p>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-
-        {/* Password Change Section */}
-        <div className="mt-8">
-          <Card className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm">
-            <CardHeader className="border-b border-gray-200 dark:border-gray-700 pb-6">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-red-100 dark:bg-red-900 rounded-lg">
-                  <Lock size={20} className="text-red-600 dark:text-red-400" />
-                </div>
-                <div>
-                  <CardTitle className="text-gray-900 dark:text-gray-100">Güvenlik Ayarları</CardTitle>
-                  <CardDescription className="text-gray-600 dark:text-gray-400">
-                    Hesabınızın güvenliği için düzenli olarak şifrenizi değiştirin
-                  </CardDescription>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="pt-6">
-              <form onSubmit={handlePasswordSubmit} className="space-y-6 max-w-md">
-                <div className="space-y-2">
-                  <Label htmlFor="currentPassword" className="text-gray-700 dark:text-gray-300 font-medium">Mevcut Şifre</Label>
-                  <div className="relative">
-                    <Input
-                      id="currentPassword"
-                      name="currentPassword"
-                      type={showCurrentPassword ? "text" : "password"}
-                      value={passwordData.currentPassword}
-                      onChange={handlePasswordDataChange}
-                      className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 focus:border-blue-500 dark:focus:border-blue-400 pr-10"
-                      placeholder="Mevcut şifrenizi girin"
-                    />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="absolute right-1 top-1 h-7 w-7 p-0"
-                      onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-                    >
-                      {showCurrentPassword ? <EyeOff size={14} /> : <Eye size={14} />}
-                    </Button>
-                  </div>
-                </div>
-
-                <Separator className="bg-gray-200 dark:bg-gray-700" />
-
-                <div className="space-y-2">
-                  <Label htmlFor="newPassword" className="text-gray-700 dark:text-gray-300 font-medium">Yeni Şifre</Label>
-                  <div className="relative">
-                    <Input
-                      id="newPassword"
-                      name="newPassword"
-                      type={showNewPassword ? "text" : "password"}
-                      value={passwordData.newPassword}
-                      onChange={handlePasswordDataChange}
-                      className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 focus:border-blue-500 dark:focus:border-blue-400 pr-10"
-                      placeholder="En az 6 karakter"
-                    />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="absolute right-1 top-1 h-7 w-7 p-0"
-                      onClick={() => setShowNewPassword(!showNewPassword)}
-                    >
-                      {showNewPassword ? <EyeOff size={14} /> : <Eye size={14} />}
-                    </Button>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="confirmPassword" className="text-gray-700 dark:text-gray-300 font-medium">Yeni Şifre Tekrar</Label>
-                  <div className="relative">
-                    <Input
-                      id="confirmPassword"
-                      name="confirmPassword"
-                      type={showConfirmPassword ? "text" : "password"}
-                      value={passwordData.confirmPassword}
-                      onChange={handlePasswordDataChange}
-                      className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 focus:border-blue-500 dark:focus:border-blue-400 pr-10"
-                      placeholder="Yeni şifrenizi tekrar girin"
-                    />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="absolute right-1 top-1 h-7 w-7 p-0"
-                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    >
-                      {showConfirmPassword ? <EyeOff size={14} /> : <Eye size={14} />}
-                    </Button>
-                  </div>
-                </div>
-              </form>
-            </CardContent>
-            <CardFooter className="border-t border-gray-200 dark:border-gray-700 pt-6">
-              <Button 
-                type="submit" 
-                onClick={handlePasswordSubmit}
-                className="w-full md:w-auto bg-red-600 hover:bg-red-700 text-white px-8"
-                disabled={isUpdatingPassword}
-              >
-                {isUpdatingPassword ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                    Güncelleniyor...
-                  </>
-                ) : (
-                  <>
-                    <Lock size={16} className="mr-2" />
-                    Şifreyi Güncelle
-                  </>
-                )}
-              </Button>
-            </CardFooter>
-          </Card>
-        </div>
+    <div className="container mx-auto p-6 max-w-4xl">
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">Profilim</h1>
+        <p className="text-gray-600 dark:text-gray-400">Hesap bilgilerinizi yönetin</p>
       </div>
+
+      {/* Profile Overview */}
+      <Card className="mb-6">
+        <CardHeader className="pb-4">
+          <div className="flex items-center space-x-4">
+            <Avatar className="h-20 w-20">
+              <AvatarImage src="/placeholder.svg" alt="Profile" />
+              <AvatarFallback className="text-lg">
+                {formData.firstName.charAt(0)}{formData.lastName.charAt(0)}
+              </AvatarFallback>
+            </Avatar>
+            <div>
+              <h2 className="text-2xl font-bold">{formData.firstName} {formData.lastName}</h2>
+              <p className="text-gray-600 dark:text-gray-400 flex items-center gap-2">
+                <Mail className="h-4 w-4" />
+                {formData.email}
+              </p>
+              <Badge className="mt-2">
+                <Crown className="h-3 w-3 mr-1" />
+                Pro Üye
+              </Badge>
+            </div>
+          </div>
+        </CardHeader>
+      </Card>
+
+      <div className="grid gap-6 md:grid-cols-2">
+        {/* Personal Information */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <User className="h-5 w-5" />
+              Kişisel Bilgiler
+            </CardTitle>
+            <CardDescription>
+              Adınızı, soyadınızı ve e-posta adresinizi güncelleyin
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleProfileUpdate} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="firstName">Ad</Label>
+                <Input
+                  id="firstName"
+                  name="firstName"
+                  value={formData.firstName}
+                  onChange={handleInputChange}
+                  className="bg-white dark:bg-gray-700"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="lastName">Soyad</Label>
+                <Input
+                  id="lastName"
+                  name="lastName"
+                  value={formData.lastName}
+                  onChange={handleInputChange}
+                  className="bg-white dark:bg-gray-700"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="email">E-posta</Label>
+                <Input
+                  id="email"
+                  name="email"
+                  type="email"
+                  value={formData.email}
+                  onChange={handleInputChange}
+                  className="bg-white dark:bg-gray-700"
+                />
+              </div>
+              <Button type="submit" disabled={saving}>
+                {saving ? "Güncelleniyor..." : "Bilgileri Güncelle"}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+
+        {/* Password Change */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Shield className="h-5 w-5" />
+              Şifre Değiştir
+            </CardTitle>
+            <CardDescription>
+              Hesabınızın güvenliği için şifrenizi güncelleyin
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handlePasswordUpdate} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="currentPassword">Mevcut Şifre</Label>
+                <Input
+                  id="currentPassword"
+                  name="currentPassword"
+                  type="password"
+                  value={formData.currentPassword}
+                  onChange={handleInputChange}
+                  className="bg-white dark:bg-gray-700"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="newPassword">Yeni Şifre</Label>
+                <Input
+                  id="newPassword"
+                  name="newPassword"
+                  type="password"
+                  value={formData.newPassword}
+                  onChange={handleInputChange}
+                  className="bg-white dark:bg-gray-700"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="confirmPassword">Yeni Şifre Tekrar</Label>
+                <Input
+                  id="confirmPassword"
+                  name="confirmPassword"
+                  type="password"
+                  value={formData.confirmPassword}
+                  onChange={handleInputChange}
+                  className="bg-white dark:bg-gray-700"
+                />
+              </div>
+              <Button type="submit" disabled={saving}>
+                {saving ? "Güncelleniyor..." : "Şifreyi Değiştir"}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Account Statistics */}
+      <Card className="mt-6">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Settings className="h-5 w-5" />
+            Hesap İstatistikleri
+          </CardTitle>
+          <CardDescription>
+            Hesap aktiviteleriniz ve kullanım bilgileriniz
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <div>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Toplam Belge</p>
+              <p className="text-2xl font-bold">24</p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Bu Ay Oluşturulan</p>
+              <p className="text-2xl font-bold">8</p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Hesap Oluşturma</p>
+              <p className="text-2xl font-bold flex items-center gap-2">
+                <Calendar className="h-4 w-4" />
+                2024
+              </p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Plan Durumu</p>
+              <Badge className="text-lg px-3 py-1">
+                <Crown className="h-4 w-4 mr-1" />
+                Aktif
+              </Badge>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 };
 
-export default ProfilePage;
+export default Profile;

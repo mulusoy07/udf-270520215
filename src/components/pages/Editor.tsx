@@ -27,6 +27,11 @@ const EditorPage = () => {
     setDocumentContent(content);
     console.log('Loading document content:', content);
     
+    // Auto-collapse sidebar on mobile when document is loaded
+    if (isMobile) {
+      setSidebarCollapsed(true);
+    }
+    
     // Find the editor content div and set its innerHTML
     setTimeout(() => {
       const editorDiv = document.querySelector('[contenteditable="true"]') as HTMLDivElement;
