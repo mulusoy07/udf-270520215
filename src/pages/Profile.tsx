@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,9 +7,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { User, Mail, Calendar, Shield, Crown, Settings, UserX } from 'lucide-react';
+import { User, Mail, Calendar, Shield, Crown, Settings, UserX, ArrowLeft } from 'lucide-react';
 import { toast } from "@/hooks/use-toast";
 import { authService } from '@/services/authService';
+import { useNavigate } from 'react-router-dom';
 
 interface ProfileData {
   id: number;
@@ -118,8 +118,10 @@ const ProfileSkeleton = () => (
 );
 
 const Profile = () => {
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [savingPassword, setSavingPassword] = useState(false);
   const [profileData, setProfileData] = useState<ProfileData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
@@ -168,7 +170,7 @@ const Profile = () => {
 
   const handleProfileUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSaving(true);
+    setSavingProfile(true);
     
     try {
       const result = await authService.updatePersonalInfo({
@@ -196,13 +198,13 @@ const Profile = () => {
         variant: "destructive"
       });
     } finally {
-      setSaving(false);
+      setSavingProfile(false);
     }
   };
 
   const handlePasswordUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSaving(true);
+    setSavingPassword(true);
     
     try {
       const result = await authService.updatePassword({
@@ -236,7 +238,7 @@ const Profile = () => {
         variant: "destructive"
       });
     } finally {
-      setSaving(false);
+      setSavingPassword(false);
     }
   };
 
@@ -284,8 +286,34 @@ const Profile = () => {
   const userStatus = getUserStatus();
   const StatusIcon = userStatus.icon;
 
+  const getPlanStatus = () => {
+    if (profileData.subscription?.plan?.name) {
+      return profileData.is_active ? 'Aktif' : 'Pasif';
+    }
+    return 'Pasif';
+  };
+
+  const getPlanStatusVariant = () => {
+    if (profileData.subscription?.plan?.name) {
+      return profileData.is_active ? "default" as const : "destructive" as const;
+    }
+    return "destructive" as const;
+  };
+
   return (
     <div className="container mx-auto p-6 max-w-4xl">
+      {/* Back Button */}
+      <div className="mb-6">
+        <Button
+          variant="ghost"
+          onClick={() => navigate('/editor')}
+          className="flex items-center gap-2 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Editor'e Geri Dön
+        </Button>
+      </div>
+
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">Profilim</h1>
         <p className="text-gray-600 dark:text-gray-400">Hesap bilgilerinizi yönetin</p>
@@ -338,6 +366,7 @@ const Profile = () => {
                   value={formData.firstName}
                   onChange={handleInputChange}
                   className="bg-white dark:bg-gray-700"
+                  disabled={savingProfile}
                 />
               </div>
               <div className="space-y-2">
@@ -348,6 +377,7 @@ const Profile = () => {
                   value={formData.lastName}
                   onChange={handleInputChange}
                   className="bg-white dark:bg-gray-700"
+                  disabled={savingProfile}
                 />
               </div>
               <div className="space-y-2">
@@ -362,8 +392,8 @@ const Profile = () => {
                   disabled
                 />
               </div>
-              <Button type="submit" disabled={saving}>
-                {saving ? "Güncelleniyor..." : "Bilgileri Güncelle"}
+              <Button type="submit" disabled={savingProfile}>
+                {savingProfile ? "Güncelleniyor..." : "Bilgileri Güncelle"}
               </Button>
             </form>
           </CardContent>
@@ -391,6 +421,7 @@ const Profile = () => {
                   value={formData.currentPassword}
                   onChange={handleInputChange}
                   className="bg-white dark:bg-gray-700"
+                  disabled={savingPassword}
                 />
               </div>
               <div className="space-y-2">
@@ -402,6 +433,7 @@ const Profile = () => {
                   value={formData.newPassword}
                   onChange={handleInputChange}
                   className="bg-white dark:bg-gray-700"
+                  disabled={savingPassword}
                 />
               </div>
               <div className="space-y-2">
@@ -413,10 +445,11 @@ const Profile = () => {
                   value={formData.confirmPassword}
                   onChange={handleInputChange}
                   className="bg-white dark:bg-gray-700"
+                  disabled={savingPassword}
                 />
               </div>
-              <Button type="submit" disabled={saving}>
-                {saving ? "Güncelleniyor..." : "Şifreyi Değiştir"}
+              <Button type="submit" disabled={savingPassword}>
+                {savingPassword ? "Güncelleniyor..." : "Şifreyi Değiştir"}
               </Button>
             </form>
           </CardContent>
@@ -453,9 +486,9 @@ const Profile = () => {
             </div>
             <div>
               <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Plan Durumu</p>
-              <Badge className="text-lg px-3 py-1" variant={profileData.is_active ? "default" : "destructive"}>
+              <Badge className="text-lg px-3 py-1" variant={getPlanStatusVariant()}>
                 <StatusIcon className="h-4 w-4 mr-1" />
-                {profileData.is_active ? 'Aktif' : 'Pasif'}
+                {getPlanStatus()}
               </Badge>
             </div>
           </div>

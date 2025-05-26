@@ -1,13 +1,13 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Check, Crown, Calendar, CreditCard, Package, AlertCircle } from 'lucide-react';
+import { Check, Crown, Calendar, CreditCard, Package, AlertCircle, ArrowLeft } from 'lucide-react';
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { authService } from '@/services/authService';
 import PlanChangeDialog from '@/components/PlanChangeDialog';
+import { useNavigate } from 'react-router-dom';
 
 interface SubscriptionData {
   has_subscription: boolean;
@@ -91,6 +91,7 @@ const SubscriptionSkeleton = () => (
 );
 
 const Subscriptions = () => {
+  const navigate = useNavigate();
   const [subscriptionData, setSubscriptionData] = useState<SubscriptionData | null>(null);
   const [paymentHistory, setPaymentHistory] = useState<PaymentHistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -176,6 +177,18 @@ const Subscriptions = () => {
 
   return (
     <div className="container mx-auto p-6 max-w-4xl">
+      {/* Back Button */}
+      <div className="mb-6">
+        <Button
+          variant="ghost"
+          onClick={() => navigate('/editor')}
+          className="flex items-center gap-2 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Editor'e Geri Dön
+        </Button>
+      </div>
+
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">Aboneliklerim</h1>
         <p className="text-gray-600 dark:text-gray-400">Abonelik planınızı ve ödeme geçmişinizi yönetin</p>
