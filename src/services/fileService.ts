@@ -1,33 +1,16 @@
 
-import { useAuth } from '@/contexts/AuthContext';
-
 const API_BASE_URL = 'http://localhost:8000/api';
 
-export interface MediaFile {
+export interface TreeNode {
   id: number;
   name: string;
-  type: string;
-  size: number;
-  content?: string;
-  folder_id?: number;
-  folder?: MediaFolder;
-  user_id: number;
-  created_at: string;
-  updated_at: string;
+  type: 'file' | 'folder';
+  size?: number;
+  url?: string;
+  children?: TreeNode[];
 }
 
-export interface MediaFolder {
-  id: number;
-  name: string;
-  user_id: number;
-  parent_id?: number;
-  created_at: string;
-  updated_at: string;
-  children?: MediaFolder[];
-  files?: MediaFile[];
-}
-
-// Get auth token from context
+// Get auth token from localStorage
 const getAuthHeaders = () => {
   const token = localStorage.getItem('auth_token');
   return {
@@ -36,12 +19,11 @@ const getAuthHeaders = () => {
   };
 };
 
-// File operations
 export const fileService = {
-  // Get all files
-  getFiles: async (): Promise<{ success: boolean; data?: MediaFile[]; message?: string }> => {
+  // Get complete file tree structure
+  getFileTree: async (): Promise<{ success: boolean; data?: TreeNode[]; message?: string }> => {
     try {
-      const response = await fetch(`${API_BASE_URL}/files`, {
+      const response = await fetch(`${API_BASE_URL}/myfiles/tree`, {
         method: 'GET',
         headers: getAuthHeaders(),
       });
@@ -49,36 +31,12 @@ export const fileService = {
       const result = await response.json();
       
       if (!response.ok) {
-        throw new Error(result.message || 'Dosyalar alınamadı');
+        throw new Error(result.message || 'Dosya yapısı alınamadı');
       }
 
       return result;
     } catch (error) {
-      console.error('Error fetching files:', error);
-      return {
-        success: false,
-        message: error instanceof Error ? error.message : 'Bilinmeyen hata oluştu'
-      };
-    }
-  },
-
-  // Get single file
-  getFile: async (id: number): Promise<{ success: boolean; data?: MediaFile; message?: string }> => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/files/${id}`, {
-        method: 'GET',
-        headers: getAuthHeaders(),
-      });
-
-      const result = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(result.message || 'Dosya alınamadı');
-      }
-
-      return result;
-    } catch (error) {
-      console.error('Error fetching file:', error);
+      console.error('Error fetching file tree:', error);
       return {
         success: false,
         message: error instanceof Error ? error.message : 'Bilinmeyen hata oluştu'
@@ -92,7 +50,7 @@ export const fileService = {
     folder_id?: number;
     content?: string;
     type?: string;
-  }): Promise<{ success: boolean; data?: MediaFile; message?: string }> => {
+  }): Promise<{ success: boolean; data?: any; message?: string }> => {
     try {
       const response = await fetch(`${API_BASE_URL}/files`, {
         method: 'POST',
@@ -121,7 +79,7 @@ export const fileService = {
     name?: string;
     folder_id?: number;
     content?: string;
-  }): Promise<{ success: boolean; data?: MediaFile; message?: string }> => {
+  }): Promise<{ success: boolean; data?: any; message?: string }> => {
     try {
       const response = await fetch(`${API_BASE_URL}/files/${id}`, {
         method: 'PUT',
@@ -172,35 +130,11 @@ export const fileService = {
 
 // Folder operations
 export const folderService = {
-  // Get all folders
-  getFolders: async (): Promise<{ success: boolean; data?: MediaFolder[]; message?: string }> => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/folders`, {
-        method: 'GET',
-        headers: getAuthHeaders(),
-      });
-
-      const result = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(result.message || 'Klasörler alınamadı');
-      }
-
-      return result;
-    } catch (error) {
-      console.error('Error fetching folders:', error);
-      return {
-        success: false,
-        message: error instanceof Error ? error.message : 'Bilinmeyen hata oluştu'
-      };
-    }
-  },
-
   // Create folder
   createFolder: async (data: {
     name: string;
     parent_id?: number;
-  }): Promise<{ success: boolean; data?: MediaFolder; message?: string }> => {
+  }): Promise<{ success: boolean; data?: any; message?: string }> => {
     try {
       const response = await fetch(`${API_BASE_URL}/folders`, {
         method: 'POST',
@@ -228,7 +162,7 @@ export const folderService = {
   updateFolder: async (id: number, data: {
     name?: string;
     parent_id?: number;
-  }): Promise<{ success: boolean; data?: MediaFolder; message?: string }> => {
+  }): Promise<{ success: boolean; data?: any; message?: string }> => {
     try {
       const response = await fetch(`${API_BASE_URL}/folders/${id}`, {
         method: 'PUT',

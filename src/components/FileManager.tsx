@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -9,24 +8,12 @@ import { Folder, File, FolderPlus, FilePlus, MoreVertical, Edit3, Trash2, Loader
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
-import { fileService, folderService, MediaFile, MediaFolder } from '@/services/fileService';
+import { fileService, folderService, TreeNode } from '@/services/fileService';
 
 interface FileManagerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
-
-interface FileItem {
-  id: number;
-  name: string;
-  type: 'file' | 'folder';
-  parentId?: number;
-  size?: number;
-  created_at?: string;
-  updated_at?: string;
-}
-
-const ITEMS_PER_PAGE = 24;
 
 const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
   const [currentPath, setCurrentPath] = useState<string[]>(['Kök Dizin']);
@@ -36,118 +23,63 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
   const [draggedItem, setDraggedItem] = useState<{ id: number; type: 'file' | 'folder' } | null>(null);
   const [dragOverItem, setDragOverItem] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const [files, setFiles] = useState<MediaFile[]>([]);
-  const [folders, setFolders] = useState<MediaFolder[]>([]);
-  const [hasMore, setHasMore] = useState(true);
-  const [page, setPage] = useState(1);
+  const [fileTree, setFileTree] = useState<TreeNode[]>([]);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
-  // Load data when component opens or folder changes
+  // Load data when component opens
   useEffect(() => {
     if (open) {
-      loadData(true);
+      loadFileTree();
     }
-  }, [open, currentFolderId]);
+  }, [open]);
 
-  const loadData = async (reset = false) => {
-    if (reset) {
-      setIsLoading(true);
-      setPage(1);
-      setHasMore(true);
-    } else {
-      setIsLoadingMore(true);
-    }
-
+  const loadFileTree = async () => {
+    setIsLoading(true);
     try {
-      const [filesResult, foldersResult] = await Promise.all([
-        fileService.getFiles(),
-        folderService.getFolders()
-      ]);
-
-      if (filesResult.success && filesResult.data) {
-        if (reset) {
-          setFiles(filesResult.data);
-        } else {
-          setFiles(prev => [...prev, ...filesResult.data!]);
-        }
+      const result = await fileService.getFileTree();
+      if (result.success && result.data) {
+        setFileTree(result.data);
       } else {
         toast({
           title: "Hata",
-          description: filesResult.message || "Dosyalar yüklenemedi",
+          description: result.message || "Dosya yapısı yüklenemedi",
           variant: "destructive"
         });
-      }
-
-      if (foldersResult.success && foldersResult.data) {
-        if (reset) {
-          setFolders(foldersResult.data);
-        } else {
-          setFolders(prev => [...prev, ...foldersResult.data!]);
-        }
-      } else {
-        toast({
-          title: "Hata", 
-          description: foldersResult.message || "Klasörler yüklenemedi",
-          variant: "destructive"
-        });
-      }
-
-      // Simulate pagination logic - in real app this would come from API
-      if (!reset) {
-        setPage(prev => prev + 1);
-        if (page >= 3) { // Simulate end of data after 3 pages
-          setHasMore(false);
-        }
       }
     } catch (error) {
-      console.error('Error loading data:', error);
+      console.error('Error loading file tree:', error);
       toast({
         title: "Hata",
-        description: "Veriler yüklenirken hata oluştu",
+        description: "Dosya yapısı yüklenirken hata oluştu",
         variant: "destructive"
       });
     } finally {
       setIsLoading(false);
-      setIsLoadingMore(false);
     }
   };
 
-  const handleScroll = useCallback((event: React.UIEvent<HTMLDivElement>) => {
-    const { scrollTop, scrollHeight, clientHeight } = event.currentTarget;
-    const isNearBottom = scrollTop + clientHeight >= scrollHeight - 100;
-
-    if (isNearBottom && hasMore && !isLoadingMore && !isLoading) {
-      loadData(false);
+  const getCurrentItems = (): TreeNode[] => {
+    if (currentFolderId === null) {
+      return fileTree;
     }
-  }, [hasMore, isLoadingMore, isLoading]);
-
-  const getCurrentItems = (): FileItem[] => {
-    const currentFiles = files
-      .filter(file => file.folder_id === currentFolderId)
-      .map(file => ({
-        id: file.id,
-        name: file.name,
-        type: 'file' as const,
-        parentId: file.folder_id || undefined,
-        size: file.size,
-        created_at: file.created_at,
-        updated_at: file.updated_at
-      }));
-
-    const currentFolders = folders
-      .filter(folder => folder.parent_id === currentFolderId)
-      .map(folder => ({
-        id: folder.id,
-        name: folder.name,
-        type: 'folder' as const,
-        parentId: folder.parent_id || undefined,
-        created_at: folder.created_at,
-        updated_at: folder.updated_at
-      }));
-
-    return [...currentFolders, ...currentFiles];
+    
+    // Find current folder in the tree
+    const findFolder = (nodes: TreeNode[]): TreeNode | null => {
+      for (const node of nodes) {
+        if (node.id === currentFolderId && node.type === 'folder') {
+          return node;
+        }
+        if (node.children) {
+          const found = findFolder(node.children);
+          if (found) return found;
+        }
+      }
+      return null;
+    };
+    
+    const currentFolder = findFolder(fileTree);
+    return currentFolder?.children || [];
   };
 
   const handleCreateFolder = async () => {
@@ -157,7 +89,8 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
     });
 
     if (result.success && result.data) {
-      setFolders(prev => [...prev, result.data!]);
+      // Reload tree to get updated data
+      await loadFileTree();
       setIsRenaming(result.data.id);
       setNewName('Yeni Klasör');
       toast({
@@ -182,7 +115,8 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
     });
 
     if (result.success && result.data) {
-      setFiles(prev => [...prev, result.data!]);
+      // Reload tree to get updated data
+      await loadFileTree();
       setIsRenaming(result.data.id);
       setNewName('Yeni Belge.udf');
       toast({
@@ -201,10 +135,8 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
   const handleRename = async (id: number, type: 'file' | 'folder') => {
     if (type === 'file') {
       const result = await fileService.updateFile(id, { name: newName });
-      if (result.success && result.data) {
-        setFiles(prev => prev.map(file => 
-          file.id === id ? result.data! : file
-        ));
+      if (result.success) {
+        await loadFileTree(); // Reload tree to get updated data
         toast({
           title: "Başarılı",
           description: "Dosya yeniden adlandırıldı",
@@ -218,10 +150,8 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
       }
     } else {
       const result = await folderService.updateFolder(id, { name: newName });
-      if (result.success && result.data) {
-        setFolders(prev => prev.map(folder => 
-          folder.id === id ? result.data! : folder
-        ));
+      if (result.success) {
+        await loadFileTree(); // Reload tree to get updated data
         toast({
           title: "Başarılı",
           description: "Klasör yeniden adlandırıldı",
@@ -243,7 +173,7 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
     if (type === 'file') {
       const result = await fileService.deleteFile(id);
       if (result.success) {
-        setFiles(prev => prev.filter(file => file.id !== id));
+        await loadFileTree(); // Reload tree to get updated data
         toast({
           title: "Başarılı",
           description: "Dosya silindi",
@@ -258,7 +188,7 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
     } else {
       const result = await folderService.deleteFolder(id);
       if (result.success) {
-        setFolders(prev => prev.filter(folder => folder.id !== id));
+        await loadFileTree(); // Reload tree to get updated data
         toast({
           title: "Başarılı",
           description: "Klasör silindi",
@@ -305,10 +235,8 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
     try {
       if (draggedItem.type === 'file') {
         const result = await fileService.updateFile(draggedItem.id, { folder_id: targetId });
-        if (result.success && result.data) {
-          setFiles(prev => prev.map(file => 
-            file.id === draggedItem.id ? result.data! : file
-          ));
+        if (result.success) {
+          await loadFileTree(); // Reload tree to get updated data
           toast({
             title: "Başarılı",
             description: "Dosya taşındı",
@@ -322,10 +250,8 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
         }
       } else {
         const result = await folderService.updateFolder(draggedItem.id, { parent_id: targetId });
-        if (result.success && result.data) {
-          setFolders(prev => prev.map(folder => 
-            folder.id === draggedItem.id ? result.data! : folder
-          ));
+        if (result.success) {
+          await loadFileTree(); // Reload tree to get updated data
           toast({
             title: "Başarılı",
             description: "Klasör taşındı",
@@ -362,7 +288,7 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
     if (index === 0) {
       setCurrentFolderId(null);
     } else {
-      // Find folder by path - this would need more complex logic in real app
+      // Find folder by path - simplified for now
       setCurrentFolderId(null);
     }
   };
@@ -417,7 +343,7 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
           </div>
 
           {/* File List */}
-          <ScrollArea ref={scrollAreaRef} className="flex-1 p-4 bg-white dark:bg-gray-900" onScrollCapture={handleScroll}>
+          <ScrollArea ref={scrollAreaRef} className="flex-1 p-4 bg-white dark:bg-gray-900">
             {isLoading ? (
               <FileManagerSkeleton />
             ) : (
@@ -520,20 +446,6 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
                     </div>
                   ))}
                 </div>
-                
-                {/* Loading More Indicator */}
-                {isLoadingMore && (
-                  <div className="flex justify-center items-center py-8">
-                    <Loader2 className="h-6 w-6 animate-spin text-gray-500" />
-                    <span className="ml-2 text-gray-500">Daha fazla yükleniyor...</span>
-                  </div>
-                )}
-                
-                {!hasMore && currentItems.length > 0 && (
-                  <div className="text-center py-4 text-gray-500 dark:text-gray-400 text-sm">
-                    Tüm öğeler yüklendi
-                  </div>
-                )}
               </>
             )}
             

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -6,7 +5,7 @@ import { History, Folder, FileSignature, User, Download, FolderOpen, LayoutTempl
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
-import { treeService, TreeItem } from '@/services/treeService';
+import { fileService, TreeNode } from '@/services/fileService';
 import SidebarSection from './SidebarSection';
 import RecentDocumentItem from './RecentDocumentItem';
 import FileTreeItem from './FileTreeItem';
@@ -58,22 +57,22 @@ const EditorSidebarContent: React.FC<EditorSidebarContentProps> = ({
   const { isAuthenticated, logout, user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [treeItems, setTreeItems] = useState<TreeItem[]>([]);
+  const [fileTree, setFileTree] = useState<TreeNode[]>([]);
   const [isLoadingTree, setIsLoadingTree] = useState(false);
 
   // Load tree structure when component mounts or user authentication changes
   useEffect(() => {
     if (isAuthenticated) {
-      loadTreeStructure();
+      loadFileTree();
     }
   }, [isAuthenticated]);
 
-  const loadTreeStructure = async () => {
+  const loadFileTree = async () => {
     setIsLoadingTree(true);
     try {
-      const result = await treeService.getTreeStructure();
+      const result = await fileService.getFileTree();
       if (result.success && result.data) {
-        setTreeItems(result.data);
+        setFileTree(result.data);
       } else {
         toast({
           title: "Hata",
@@ -82,7 +81,7 @@ const EditorSidebarContent: React.FC<EditorSidebarContentProps> = ({
         });
       }
     } catch (error) {
-      console.error('Error loading tree structure:', error);
+      console.error('Error loading file tree:', error);
       toast({
         title: "Hata",
         description: "Dosya yapısı yüklenirken hata oluştu",
@@ -93,41 +92,28 @@ const EditorSidebarContent: React.FC<EditorSidebarContentProps> = ({
     }
   };
 
-  const buildFileTree = (items: TreeItem[], parentId?: number): any[] => {
-    return items
-      .filter(item => item.parent_id === parentId)
-      .map(item => {
-        const children = buildFileTree(items, item.id);
-        
-        // Get appropriate icon based on type
-        let icon;
-        switch (item.type) {
-          case 'folder':
-            icon = Folder;
-            break;
-          case 'project':
-            icon = FolderOpen;
-            break;
-          case 'contract':
-            icon = FileSignature;
-            break;
-          case 'report':
-            icon = History;
-            break;
-          default:
-            icon = Folder;
-        }
+  const convertTreeNodeToFileTreeItem = (node: TreeNode): any => {
+    let icon;
+    switch (node.type) {
+      case 'folder':
+        icon = Folder;
+        break;
+      case 'file':
+        icon = FileSignature;
+        break;
+      default:
+        icon = Folder;
+    }
 
-        return {
-          name: item.name,
-          type: children.length > 0 ? 'folder' : 'file',
-          icon,
-          children: children.length > 0 ? children : undefined
-        };
-      });
+    return {
+      name: node.name,
+      type: node.type === 'folder' ? 'folder' : 'file',
+      icon,
+      children: node.children ? node.children.map(convertTreeNodeToFileTreeItem) : undefined
+    };
   };
 
-  const fileTree = buildFileTree(treeItems);
+  const fileTreeItems = fileTree.map(convertTreeNodeToFileTreeItem);
 
   const handleLogout = () => {
     logout();
@@ -198,7 +184,7 @@ const EditorSidebarContent: React.FC<EditorSidebarContentProps> = ({
                 </div>
               ) : (
                 <div className="space-y-1">
-                  {fileTree.map((item) => (
+                  {fileTreeItems.map((item) => (
                     <FileTreeItem
                       key={item.name}
                       item={item}
