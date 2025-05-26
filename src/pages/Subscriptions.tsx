@@ -97,25 +97,45 @@ const Subscriptions = () => {
   const [error, setError] = useState<string | null>(null);
   const [planChangeDialogOpen, setPlanChangeDialogOpen] = useState(false);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        const data = await authService.getSubscriptionData();
-        setSubscriptionData(data);
-        
-        const history = await authService.getPaymentHistory();
-        setPaymentHistory(history);
-      } catch (err) {
-        setError('Abonelik bilgileri yüklenirken bir hata oluştu.');
-        console.error('Subscription data fetch error:', err);
-      } finally {
-        setLoading(false);
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      const subscriptionResult = await authService.getSubscription();
+      if (subscriptionResult.success && subscriptionResult.data) {
+        // Map the backend response to our frontend interface
+        const mappedData: SubscriptionData = {
+          has_subscription: subscriptionResult.data.has_subscription,
+          plan_name: subscriptionResult.data.plan_name,
+          plan_price: subscriptionResult.data.plan_price,
+          currency: subscriptionResult.data.currency,
+          subscription_expiry_date: subscriptionResult.data.expiry_date,
+          days_remaining: subscriptionResult.data.remaining_days,
+          features: subscriptionResult.data.features || [],
+          can_renew: subscriptionResult.data.is_active,
+        };
+        setSubscriptionData(mappedData);
       }
-    };
+      
+      const historyResult = await authService.getPaymentHistory();
+      if (historyResult.success && historyResult.data) {
+        setPaymentHistory(historyResult.data);
+      }
+    } catch (err) {
+      setError('Abonelik bilgileri yüklenirken bir hata oluştu.');
+      console.error('Subscription data fetch error:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  useEffect(() => {
     fetchData();
   }, []);
+
+  const handlePlanChanged = () => {
+    // Refresh subscription data after plan change
+    fetchData();
+  };
 
   if (loading) {
     return (
@@ -277,6 +297,8 @@ const Subscriptions = () => {
       <PlanChangeDialog 
         open={planChangeDialogOpen}
         onOpenChange={setPlanChangeDialogOpen}
+        onPlanChanged={handlePlanChanged}
+        currentPlan={subscriptionData?.plan_name || undefined}
       />
     </div>
   );

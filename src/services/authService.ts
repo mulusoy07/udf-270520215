@@ -1,4 +1,3 @@
-
 const API_BASE_URL = 'https://b6f0-46-1-181-143.ngrok-free.app/api';
 
 export interface User {
@@ -390,6 +389,10 @@ class AuthService {
         errors: { success: false, message: 'Bağlantı hatası oluştu' } 
       };
     }
+  }
+
+  async getSubscriptionData(): Promise<{ success: boolean; data?: SubscriptionData; errors?: ApiError }> {
+    return this.getSubscription();
   }
 
   private setAuth(token: string, user: User): void {
