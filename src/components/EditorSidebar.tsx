@@ -355,7 +355,6 @@ const EditorSidebar: React.FC<EditorSidebarProps> = ({ collapsed, setCollapsed, 
         setFileManagerOpen={setFileManagerOpen}
         setLoginModalOpen={setLoginModalOpen}
         recentDocs={recentDocs}
-        fileTree={fileTree}
       />
       
       {/* Dialog'lar */}
