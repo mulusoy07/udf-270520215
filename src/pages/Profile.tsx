@@ -7,10 +7,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { User, Mail, Calendar, Shield, Crown, Settings, UserX, ArrowLeft, Home } from 'lucide-react';
+import { User, Mail, Calendar, Shield, Crown, Settings, UserX } from 'lucide-react';
 import { toast } from "@/hooks/use-toast";
 import { authService } from '@/services/authService';
 import { useNavigate } from 'react-router-dom';
+import AnimatedBackButton from '@/components/ui/animated-back-button';
 
 interface ProfileData {
   id: number;
@@ -183,9 +184,9 @@ const Profile = () => {
           title: "Profil güncellendi!",
           description: "Profil bilgileriniz başarıyla güncellendi.",
         });
-        fetchProfileData(); // Refresh profile data
+        fetchProfileData();
       } else {
-        // Backend'den gelen hata mesajlarını göster
+        // Standardized error handling
         if (result.errors) {
           const errorMessages = Object.values(result.errors).flat();
           toast({
@@ -235,7 +236,7 @@ const Profile = () => {
           confirmPassword: ''
         }));
       } else {
-        // Backend'den gelen hata mesajlarını göster
+        // Standardized error handling
         if (result.errors) {
           const errorMessages = Object.values(result.errors).flat();
           toast({
@@ -340,29 +341,11 @@ const Profile = () => {
 
   return (
     <div className="container mx-auto p-6 max-w-4xl">
-      {/* Modern Back Button */}
-      <div className="mb-8">
-        <Card className="border-l-4 border-l-blue-500 bg-gradient-to-r from-blue-50 to-transparent dark:from-blue-950/20">
-          <CardContent className="py-4">
-            <Button
-              variant="ghost"
-              onClick={() => navigate('/editor')}
-              className="flex items-center gap-3 text-blue-600 hover:text-blue-700 hover:bg-blue-100 dark:text-blue-400 dark:hover:text-blue-300 dark:hover:bg-blue-900/20 transition-all duration-200 text-base font-medium"
-            >
-              <div className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/30">
-                <ArrowLeft className="h-4 w-4" />
-              </div>
-              <span>Editor'e Geri Dön</span>
-              <Home className="h-4 w-4 ml-auto opacity-60" />
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">Profilim</h1>
-        <p className="text-gray-600 dark:text-gray-400">Hesap bilgilerinizi yönetin</p>
-      </div>
+      {/* Animated Back Button */}
+      <AnimatedBackButton 
+        title="Profilim" 
+        subtitle="Hesap bilgilerinizi yönetin" 
+      />
 
       {/* Profile Overview */}
       <Card className="mb-6">
