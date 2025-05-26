@@ -170,29 +170,14 @@ const Profile = () => {
     }));
   };
 
-  // Enhanced error message extraction function
+  // Simplified error handler - only supports "errors" format
   const extractErrorMessages = (errorData: any): string => {
     if (!errorData) return 'Bir hata oluştu.';
     
-    // New format: { "success": false, "errors": { "field": ["message"] } }
+    // Only handle the new format: { "success": false, "errors": { "field": ["message"] } }
     if (errorData.errors && typeof errorData.errors === 'object') {
       const errorMessages = Object.values(errorData.errors).flat() as string[];
       return errorMessages.join(', ');
-    }
-    
-    // Old format: { "field": ["message"] } directly
-    if (typeof errorData === 'object' && !errorData.success && !errorData.errors) {
-      const errorMessages = Object.values(errorData).flat() as string[];
-      return errorMessages.join(', ');
-    }
-    
-    // Fallback for string messages
-    if (typeof errorData === 'string') {
-      return errorData;
-    }
-    
-    if (errorData.message) {
-      return errorData.message;
     }
     
     return 'Bir hata oluştu.';
