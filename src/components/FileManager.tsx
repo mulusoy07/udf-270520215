@@ -1,10 +1,11 @@
+
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { Folder, File, FolderPlus, FilePlus, MoreVertical, Edit3, Trash2, Loader2, Palette } from 'lucide-react';
+import { Folder, File, FolderPlus, FilePlus, MoreVertical, Edit3, Trash2, Loader2, Palette, Search } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui/pagination';
@@ -27,6 +28,7 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [fileTree, setFileTree] = useState<TreeNode[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
+  const [searchQuery, setSearchQuery] = useState('');
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
@@ -110,18 +112,30 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
     return currentFolder?.children || [];
   };
 
+  // Filter items based on search query
+  const getFilteredItems = (): TreeNode[] => {
+    const items = getCurrentItems();
+    if (!searchQuery.trim()) {
+      return items;
+    }
+    
+    return items.filter(item => 
+      item.name.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  };
+
   // Pagination logic
   const itemsPerPage = isMobile ? ITEMS_PER_PAGE_MOBILE : ITEMS_PER_PAGE_DESKTOP;
-  const allItems = getCurrentItems();
+  const allItems = getFilteredItems();
   const totalPages = Math.ceil(allItems.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
   const currentItems = allItems.slice(startIndex, endIndex);
 
-  // Reset to first page when changing folders
+  // Reset to first page when changing folders or search
   useEffect(() => {
     setCurrentPage(1);
-  }, [currentFolderId]);
+  }, [currentFolderId, searchQuery]);
 
   const handleCreateFolder = async () => {
     const result = await folderService.createFolder({
@@ -208,24 +222,9 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
     setNewName('');
   };
 
-  const handleColorChange = async (id: number, type: 'file' | 'folder', color: string) => {
-    if (type === 'file') {
-      const result = await fileService.updateFile(id, { color });
-      if (result.success) {
-        await refreshData();
-        toast({
-          title: "Başarılı",
-          description: "Dosya rengi güncellendi",
-        });
-      } else {
-        toast({
-          title: "Hata",
-          description: result.message || "Renk güncellenemedi",
-          variant: "destructive"
-        });
-      }
-    } else {
-      const result = await folderService.updateFolder(id, { color });
+  const handleColorChange = async (id: number, type: 'file' | 'folder', color: string, name: string) => {
+    if (type === 'folder') {
+      const result = await folderService.updateFolder(id, { color, name });
       if (result.success) {
         await refreshData();
         toast({
@@ -395,7 +394,7 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
 
   // Skeleton Loading Component
   const FileManagerSkeleton = () => (
-    <div className={`grid gap-3 ${isMobile ? 'grid-cols-2' : 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6'}`}>
+    <div className={`grid gap-3 ${isMobile ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6'}`}>
       {Array.from({ length: itemsPerPage }).map((_, index) => (
         <div key={index} className="flex flex-col items-center gap-2 p-3 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900">
           <Skeleton className="h-8 w-8 rounded" />
@@ -414,15 +413,30 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
         
         <div className="flex flex-col h-full">
           {/* Toolbar */}
-          <div className="flex flex-wrap gap-2 p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
-            <Button size="sm" onClick={handleCreateFolder} className="flex items-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground">
-              <FolderPlus size={16} />
-              Klasör Oluştur
-            </Button>
-            <Button size="sm" variant="outline" onClick={handleCreateFile} className="flex items-center gap-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700">
-              <FilePlus size={16} />
-              Dosya Oluştur
-            </Button>
+          <div className="flex flex-col gap-3 p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+            {/* Buttons Row */}
+            <div className={`flex gap-2 ${isMobile ? 'flex-col' : 'flex-wrap'}`}>
+              <Button size="sm" onClick={handleCreateFolder} className="flex items-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground">
+                <FolderPlus size={16} />
+                Klasör Oluştur
+              </Button>
+              <Button size="sm" variant="outline" onClick={handleCreateFile} className="flex items-center gap-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700">
+                <FilePlus size={16} />
+                Dosya Oluştur
+              </Button>
+            </div>
+            
+            {/* Search Row */}
+            <div className="relative">
+              <Search size={16} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500" />
+              <Input
+                type="text"
+                placeholder="Dosya veya klasör ara..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10 bg-white dark:bg-gray-900 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100"
+              />
+            </div>
           </div>
 
           {/* Breadcrumb */}
@@ -446,7 +460,7 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
               <FileManagerSkeleton />
             ) : (
               <>
-                <div className={`grid gap-3 ${isMobile ? 'grid-cols-2' : 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6'}`}>
+                <div className={`grid gap-3 ${isMobile ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6'}`}>
                   {currentItems.map((item) => {
                     const hasChildren = item.children && item.children.length > 0;
                     const folderColorClass = item.type === 'folder' 
@@ -479,7 +493,6 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
                             <File 
                               size={32} 
                               className="text-gray-500 dark:text-gray-400"
-                              color={item.color || undefined}
                             />
                           )}
                         </div>
@@ -542,13 +555,15 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
                                     <DropdownMenuItem 
                                       onSelect={(e) => e.preventDefault()} 
                                       className="text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
-                                      onClick={(e) => e.stopPropagation()}
                                     >
                                       <Palette size={14} className="mr-2" />
                                       Renk Seç
                                     </DropdownMenuItem>
                                   </AlertDialogTrigger>
-                                  <AlertDialogContent className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+                                  <AlertDialogContent 
+                                    className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700"
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
                                     <AlertDialogHeader>
                                       <AlertDialogTitle className="text-gray-900 dark:text-gray-100">Renk Seç</AlertDialogTitle>
                                       <AlertDialogDescription className="text-gray-600 dark:text-gray-400">
@@ -563,13 +578,18 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
                                           style={{ backgroundColor: color }}
                                           onClick={(e) => {
                                             e.stopPropagation();
-                                            handleColorChange(item.id, item.type, color);
+                                            handleColorChange(item.id, item.type, color, item.name);
                                           }}
                                         />
                                       ))}
                                     </div>
                                     <AlertDialogFooter>
-                                      <AlertDialogCancel className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600">İptal</AlertDialogCancel>
+                                      <AlertDialogCancel 
+                                        className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600"
+                                        onClick={(e) => e.stopPropagation()}
+                                      >
+                                        İptal
+                                      </AlertDialogCancel>
                                     </AlertDialogFooter>
                                   </AlertDialogContent>
                                 </AlertDialog>
@@ -580,13 +600,15 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
                                   <DropdownMenuItem 
                                     onSelect={(e) => e.preventDefault()} 
                                     className="text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
-                                    onClick={(e) => e.stopPropagation()}
                                   >
                                     <Trash2 size={14} className="mr-2" />
                                     Sil
                                   </DropdownMenuItem>
                                 </AlertDialogTrigger>
-                                <AlertDialogContent className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+                                <AlertDialogContent 
+                                  className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
                                   <AlertDialogHeader>
                                     <AlertDialogTitle className="text-gray-900 dark:text-gray-100">Silmeyi Onayla</AlertDialogTitle>
                                     <AlertDialogDescription className="text-gray-600 dark:text-gray-400">
@@ -594,7 +616,12 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
                                     </AlertDialogDescription>
                                   </AlertDialogHeader>
                                   <AlertDialogFooter>
-                                    <AlertDialogCancel className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600">İptal</AlertDialogCancel>
+                                    <AlertDialogCancel 
+                                      className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600"
+                                      onClick={(e) => e.stopPropagation()}
+                                    >
+                                      İptal
+                                    </AlertDialogCancel>
                                     <AlertDialogAction
                                       onClick={(e) => {
                                         e.stopPropagation();
@@ -663,11 +690,19 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
               </>
             )}
             
-            {!isLoading && allItems.length === 0 && (
+            {!isLoading && allItems.length === 0 && !searchQuery && (
               <div className="text-center py-12 text-gray-500 dark:text-gray-400">
                 <Folder size={48} className="mx-auto mb-4 text-gray-300 dark:text-gray-600" />
                 <p>Bu klasör boş</p>
                 <p className="text-sm mt-1">Yeni dosya veya klasör oluşturabilirsiniz</p>
+              </div>
+            )}
+            
+            {!isLoading && allItems.length === 0 && searchQuery && (
+              <div className="text-center py-12 text-gray-500 dark:text-gray-400">
+                <Search size={48} className="mx-auto mb-4 text-gray-300 dark:text-gray-600" />
+                <p>Arama sonucu bulunamadı</p>
+                <p className="text-sm mt-1">"{searchQuery}" için sonuç bulunamadı</p>
               </div>
             )}
           </div>
