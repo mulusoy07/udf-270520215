@@ -281,9 +281,89 @@ class AuthService {
     }
   }
 
+  async getSubscriptionPlans(): Promise<{ success: boolean; data?: any[]; errors?: ApiError }> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/subscription/plans`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${this.token}`,
+          'ngrok-skip-browser-warning': 'true',
+        },
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        return { success: true, data: data.data };
+      } else {
+        return { success: false, errors: data };
+      }
+    } catch (error) {
+      console.error('Plans fetch error:', error);
+      return { 
+        success: false, 
+        errors: { success: false, message: 'Bağlantı hatası oluştu' } 
+      };
+    }
+  }
+
+  async getPaymentHistory(page: number = 1, limit: number = 10): Promise<{ success: boolean; data?: any; errors?: ApiError }> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/subscription/payment-history?page=${page}&limit=${limit}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${this.token}`,
+          'ngrok-skip-browser-warning': 'true',
+        },
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        return { success: true, data: data.data };
+      } else {
+        return { success: false, errors: data };
+      }
+    } catch (error) {
+      console.error('Payment history fetch error:', error);
+      return { 
+        success: false, 
+        errors: { success: false, message: 'Bağlantı hatası oluştu' } 
+      };
+    }
+  }
+
+  async changePlan(planId: number): Promise<{ success: boolean; errors?: ApiError }> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/subscription/change-plan`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.token}`,
+          'ngrok-skip-browser-warning': 'true',
+        },
+        body: JSON.stringify({ plan_id: planId }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        return { success: true };
+      } else {
+        return { success: false, errors: data };
+      }
+    } catch (error) {
+      console.error('Plan change error:', error);
+      return { 
+        success: false, 
+        errors: { success: false, message: 'Bağlantı hatası oluştu' } 
+      };
+    }
+  }
+
   async renewSubscription(): Promise<{ success: boolean; errors?: ApiError }> {
     try {
-      const response = await fetch(`${API_BASE_URL}/subscriptions/renew`, {
+      const response = await fetch(`${API_BASE_URL}/subscription/renew`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${this.token}`,
