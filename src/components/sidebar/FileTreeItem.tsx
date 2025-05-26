@@ -48,7 +48,7 @@ const FileTreeItem: React.FC<FileTreeItemProps> = ({
           {isExpanded ? <ChevronDown size={14} className="mr-1 text-gray-500 dark:text-gray-400" /> : <ChevronRight size={14} className="mr-1 text-gray-500 dark:text-gray-400" />}
           <item.icon 
             size={16} 
-            className={`mr-2 ${folderColor}`} 
+            className={item.color ? "mr-2" : `mr-2 ${folderColor}`}
             color={item.color || undefined}
           />
           <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{item.name}</span>
@@ -128,35 +128,6 @@ const FileTreeItem: React.FC<FileTreeItemProps> = ({
               <AlertDialogAction onClick={() => onFileAction('düzenleme', item.name)}>
                 Düzenle
               </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-
-        <AlertDialog>
-          <AlertDialogTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-6 w-6 hover:bg-gray-200 dark:hover:bg-gray-600" title="Renk Ayarla" onClick={(e) => e.stopPropagation()}>
-              <Palette size={14} className="text-gray-500 dark:text-gray-400" />
-            </Button>
-          </AlertDialogTrigger>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Renk Seç</AlertDialogTitle>
-              <AlertDialogDescription>
-                {item.name} için bir renk seçin.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <div className="grid grid-cols-6 gap-2 p-4">
-              {['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#6b7280', '#000000'].map((color) => (
-                <button
-                  key={color}
-                  className="w-8 h-8 rounded-full border-2 border-gray-300 hover:border-gray-500"
-                  style={{ backgroundColor: color }}
-                  onClick={() => onFileAction('renk', item.name, color)}
-                />
-              ))}
-            </div>
-            <AlertDialogFooter>
-              <AlertDialogCancel>İptal</AlertDialogCancel>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>

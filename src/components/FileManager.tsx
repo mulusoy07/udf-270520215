@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -8,6 +7,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Folder, File, FolderPlus, FilePlus, MoreVertical, Edit3, Trash2, Loader2, Palette } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui/pagination';
 import { useToast } from '@/hooks/use-toast';
 import { fileService, folderService, TreeNode } from '@/services/fileService';
 
@@ -26,13 +26,30 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
   const [dragOverItem, setDragOverItem] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [fileTree, setFileTree] = useState<TreeNode[]>([]);
+  const [currentPage, setCurrentPage] = useState(1);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
+
+  const ITEMS_PER_PAGE_DESKTOP = 12;
+  const ITEMS_PER_PAGE_MOBILE = 6;
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Detect mobile screen size
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   // Load data when component opens
   useEffect(() => {
     if (open) {
       loadFileTree();
+      setCurrentPage(1);
     }
   }, [open]);
 
@@ -92,6 +109,19 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
     const currentFolder = findFolder(fileTree);
     return currentFolder?.children || [];
   };
+
+  // Pagination logic
+  const itemsPerPage = isMobile ? ITEMS_PER_PAGE_MOBILE : ITEMS_PER_PAGE_DESKTOP;
+  const allItems = getCurrentItems();
+  const totalPages = Math.ceil(allItems.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const currentItems = allItems.slice(startIndex, endIndex);
+
+  // Reset to first page when changing folders
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [currentFolderId]);
 
   const handleCreateFolder = async () => {
     const result = await folderService.createFolder({
@@ -363,12 +393,10 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
     setNewName(itemName);
   };
 
-  const currentItems = getCurrentItems();
-
   // Skeleton Loading Component
   const FileManagerSkeleton = () => (
-    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
-      {Array.from({ length: 12 }).map((_, index) => (
+    <div className={`grid gap-3 ${isMobile ? 'grid-cols-2' : 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6'}`}>
+      {Array.from({ length: itemsPerPage }).map((_, index) => (
         <div key={index} className="flex flex-col items-center gap-2 p-3 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900">
           <Skeleton className="h-8 w-8 rounded" />
           <Skeleton className="h-4 w-16" />
@@ -413,12 +441,12 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
           </div>
 
           {/* File List */}
-          <ScrollArea ref={scrollAreaRef} className="flex-1 p-4 bg-white dark:bg-gray-900">
+          <div className="flex-1 p-4 bg-white dark:bg-gray-900 overflow-hidden">
             {isLoading ? (
               <FileManagerSkeleton />
             ) : (
               <>
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
+                <div className={`grid gap-3 ${isMobile ? 'grid-cols-2' : 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6'}`}>
                   {currentItems.map((item) => {
                     const hasChildren = item.children && item.children.length > 0;
                     const folderColorClass = item.type === 'folder' 
@@ -444,14 +472,14 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
                           {item.type === 'folder' ? (
                             <Folder 
                               size={32} 
-                              className={folderColorClass} 
-                              style={{ color: item.color || undefined }}
+                              className={item.color ? '' : folderColorClass}
+                              color={item.color || undefined}
                             />
                           ) : (
                             <File 
                               size={32} 
                               className="text-gray-500 dark:text-gray-400"
-                              style={{ color: item.color || undefined }}
+                              color={item.color || undefined}
                             />
                           )}
                         </div>
@@ -498,48 +526,62 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end" className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-lg z-50">
                               <DropdownMenuItem
-                                onClick={(e) => handleRenameClick(e, item.id, item.name)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleRenameClick(e, item.id, item.name);
+                                }}
                                 className="text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
                               >
                                 <Edit3 size={14} className="mr-2" />
                                 Yeniden Adlandır
                               </DropdownMenuItem>
 
-                              <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                  <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700">
-                                    <Palette size={14} className="mr-2" />
-                                    Renk Seç
-                                  </DropdownMenuItem>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
-                                  <AlertDialogHeader>
-                                    <AlertDialogTitle className="text-gray-900 dark:text-gray-100">Renk Seç</AlertDialogTitle>
-                                    <AlertDialogDescription className="text-gray-600 dark:text-gray-400">
-                                      {item.name} için bir renk seçin.
-                                    </AlertDialogDescription>
-                                  </AlertDialogHeader>
-                                  <div className="grid grid-cols-8 gap-2 p-4">
-                                    {['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#6b7280', '#000000'].map((color) => (
-                                      <button
-                                        key={color}
-                                        className="w-8 h-8 rounded-full border-2 border-gray-300 hover:border-gray-500"
-                                        style={{ backgroundColor: color }}
-                                        onClick={() => {
-                                          handleColorChange(item.id, item.type, color);
-                                        }}
-                                      />
-                                    ))}
-                                  </div>
-                                  <AlertDialogFooter>
-                                    <AlertDialogCancel className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600">İptal</AlertDialogCancel>
-                                  </AlertDialogFooter>
-                                </AlertDialogContent>
-                              </AlertDialog>
+                              {item.type === 'folder' && (
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <DropdownMenuItem 
+                                      onSelect={(e) => e.preventDefault()} 
+                                      className="text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
+                                      onClick={(e) => e.stopPropagation()}
+                                    >
+                                      <Palette size={14} className="mr-2" />
+                                      Renk Seç
+                                    </DropdownMenuItem>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle className="text-gray-900 dark:text-gray-100">Renk Seç</AlertDialogTitle>
+                                      <AlertDialogDescription className="text-gray-600 dark:text-gray-400">
+                                        {item.name} için bir renk seçin.
+                                      </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <div className="grid grid-cols-8 gap-2 p-4">
+                                      {['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#6b7280', '#000000'].map((color) => (
+                                        <button
+                                          key={color}
+                                          className="w-8 h-8 rounded-full border-2 border-gray-300 hover:border-gray-500"
+                                          style={{ backgroundColor: color }}
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleColorChange(item.id, item.type, color);
+                                          }}
+                                        />
+                                      ))}
+                                    </div>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600">İptal</AlertDialogCancel>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
+                              )}
                               
                               <AlertDialog>
                                 <AlertDialogTrigger asChild>
-                                  <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700">
+                                  <DropdownMenuItem 
+                                    onSelect={(e) => e.preventDefault()} 
+                                    className="text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
                                     <Trash2 size={14} className="mr-2" />
                                     Sil
                                   </DropdownMenuItem>
@@ -554,7 +596,10 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
                                   <AlertDialogFooter>
                                     <AlertDialogCancel className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600">İptal</AlertDialogCancel>
                                     <AlertDialogAction
-                                      onClick={() => handleDelete(item.id, item.type)}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleDelete(item.id, item.type);
+                                      }}
                                       className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
                                     >
                                       Sil
@@ -569,17 +614,63 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
                     );
                   })}
                 </div>
+
+                {/* Pagination */}
+                {totalPages > 1 && (
+                  <div className="mt-6 flex justify-center">
+                    <Pagination>
+                      <PaginationContent>
+                        <PaginationItem>
+                          <PaginationPrevious 
+                            href="#"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              if (currentPage > 1) setCurrentPage(currentPage - 1);
+                            }}
+                            className={currentPage === 1 ? 'pointer-events-none opacity-50' : ''}
+                          />
+                        </PaginationItem>
+                        
+                        {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                          <PaginationItem key={page}>
+                            <PaginationLink
+                              href="#"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                setCurrentPage(page);
+                              }}
+                              isActive={currentPage === page}
+                            >
+                              {page}
+                            </PaginationLink>
+                          </PaginationItem>
+                        ))}
+                        
+                        <PaginationItem>
+                          <PaginationNext 
+                            href="#"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              if (currentPage < totalPages) setCurrentPage(currentPage + 1);
+                            }}
+                            className={currentPage === totalPages ? 'pointer-events-none opacity-50' : ''}
+                          />
+                        </PaginationItem>
+                      </PaginationContent>
+                    </Pagination>
+                  </div>
+                )}
               </>
             )}
             
-            {!isLoading && currentItems.length === 0 && (
+            {!isLoading && allItems.length === 0 && (
               <div className="text-center py-12 text-gray-500 dark:text-gray-400">
                 <Folder size={48} className="mx-auto mb-4 text-gray-300 dark:text-gray-600" />
                 <p>Bu klasör boş</p>
                 <p className="text-sm mt-1">Yeni dosya veya klasör oluşturabilirsiniz</p>
               </div>
             )}
-          </ScrollArea>
+          </div>
         </div>
       </DialogContent>
     </Dialog>
