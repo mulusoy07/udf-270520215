@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -392,17 +391,40 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
     setNewName(itemName);
   };
 
-  // Skeleton Loading Component
-  const FileManagerSkeleton = () => (
-    <div className={`grid gap-3 ${isMobile ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6'}`}>
-      {Array.from({ length: itemsPerPage }).map((_, index) => (
-        <div key={index} className="flex flex-col items-center gap-2 p-3 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900">
-          <Skeleton className="h-8 w-8 rounded" />
-          <Skeleton className="h-4 w-16" />
-        </div>
-      ))}
-    </div>
-  );
+  const handleDropdownClick = (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent folder navigation when opening dropdown
+  };
+
+  const handleColorChangeClick = (e: React.MouseEvent, item: TreeNode, color: string) => {
+    e.stopPropagation(); // Prevent folder navigation
+    handleColorChange(item.id, item.type, color, item.name);
+  };
+
+  const handleDeleteClick = (e: React.MouseEvent, item: TreeNode) => {
+    e.stopPropagation(); // Prevent folder navigation
+    handleDelete(item.id, item.type);
+  };
+
+  // Skeleton Loading Component with calculated min-height
+  const FileManagerSkeleton = () => {
+    const skeletonHeight = isMobile ? 
+      `${itemsPerPage * 80 + 100}px` : // Mobile: item height ~80px + padding
+      `${Math.ceil(itemsPerPage / 6) * 120 + 100}px`; // Desktop: row height ~120px + padding
+    
+    return (
+      <div 
+        className={`grid gap-3 ${isMobile ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6'}`}
+        style={{ minHeight: skeletonHeight }}
+      >
+        {Array.from({ length: itemsPerPage }).map((_, index) => (
+          <div key={index} className="flex flex-col items-center gap-2 p-3 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900">
+            <Skeleton className="h-8 w-8 rounded" />
+            <Skeleton className="h-4 w-16" />
+          </div>
+        ))}
+      </div>
+    );
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -460,7 +482,13 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
               <FileManagerSkeleton />
             ) : (
               <>
-                <div className={`grid gap-3 ${isMobile ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6'}`}>
+                <div 
+                  className={`grid gap-3 ${isMobile ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6'}`}
+                  style={{ minHeight: isMobile ? 
+                    `${itemsPerPage * 80 + 100}px` : 
+                    `${Math.ceil(itemsPerPage / 6) * 120 + 100}px` 
+                  }}
+                >
                   {currentItems.map((item) => {
                     const hasChildren = item.children && item.children.length > 0;
                     const folderColorClass = item.type === 'folder' 
@@ -532,7 +560,7 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
                                 variant="ghost" 
                                 size="icon" 
                                 className="h-6 w-6 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
-                                onClick={(e) => e.stopPropagation()}
+                                onClick={handleDropdownClick}
                               >
                                 <MoreVertical size={12} />
                               </Button>
@@ -562,7 +590,6 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
                                   </AlertDialogTrigger>
                                   <AlertDialogContent 
                                     className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700"
-                                    onClick={(e) => e.stopPropagation()}
                                   >
                                     <AlertDialogHeader>
                                       <AlertDialogTitle className="text-gray-900 dark:text-gray-100">Renk Seç</AlertDialogTitle>
@@ -576,17 +603,13 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
                                           key={color}
                                           className="w-8 h-8 rounded-full border-2 border-gray-300 hover:border-gray-500"
                                           style={{ backgroundColor: color }}
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleColorChange(item.id, item.type, color, item.name);
-                                          }}
+                                          onClick={(e) => handleColorChangeClick(e, item, color)}
                                         />
                                       ))}
                                     </div>
                                     <AlertDialogFooter>
                                       <AlertDialogCancel 
                                         className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600"
-                                        onClick={(e) => e.stopPropagation()}
                                       >
                                         İptal
                                       </AlertDialogCancel>
@@ -607,7 +630,6 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
                                 </AlertDialogTrigger>
                                 <AlertDialogContent 
                                   className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700"
-                                  onClick={(e) => e.stopPropagation()}
                                 >
                                   <AlertDialogHeader>
                                     <AlertDialogTitle className="text-gray-900 dark:text-gray-100">Silmeyi Onayla</AlertDialogTitle>
@@ -618,15 +640,11 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
                                   <AlertDialogFooter>
                                     <AlertDialogCancel 
                                       className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600"
-                                      onClick={(e) => e.stopPropagation()}
                                     >
                                       İptal
                                     </AlertDialogCancel>
                                     <AlertDialogAction
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleDelete(item.id, item.type);
-                                      }}
+                                      onClick={(e) => handleDeleteClick(e, item)}
                                       className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
                                     >
                                       Sil
