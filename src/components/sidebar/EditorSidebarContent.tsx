@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -92,23 +93,26 @@ const EditorSidebarContent: React.FC<EditorSidebarContentProps> = ({
     }
   };
 
-  const convertTreeNodeToFileTreeItem = (node: TreeNode): any => {
-    let icon;
-    switch (node.type) {
-      case 'folder':
-        icon = Folder;
-        break;
-      case 'file':
-        icon = FileSignature;
-        break;
-      default:
-        icon = Folder;
-    }
+  // Function to refresh file tree - will be called from FileManager
+  const refreshFileTree = () => {
+    loadFileTree();
+  };
 
+  // Make refreshFileTree available globally for FileManager to use
+  useEffect(() => {
+    (window as any).refreshSidebarFileTree = refreshFileTree;
+    return () => {
+      delete (window as any).refreshSidebarFileTree;
+    };
+  }, []);
+
+  const convertTreeNodeToFileTreeItem = (node: TreeNode): any => {
     return {
+      id: node.id,
       name: node.name,
       type: node.type === 'folder' ? 'folder' : 'file',
-      icon,
+      icon: node.type === 'folder' ? Folder : FileSignature,
+      hasChildren: node.children && node.children.length > 0,
       children: node.children ? node.children.map(convertTreeNodeToFileTreeItem) : undefined
     };
   };
@@ -186,7 +190,7 @@ const EditorSidebarContent: React.FC<EditorSidebarContentProps> = ({
                 <div className="space-y-1">
                   {fileTreeItems.map((item) => (
                     <FileTreeItem
-                      key={item.name}
+                      key={item.id}
                       item={item}
                       expandedFolders={expandedFolders}
                       onToggleFolder={onToggleFolder}

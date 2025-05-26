@@ -6,9 +6,11 @@ import { ChevronDown, ChevronRight, Eye, Edit, Trash2 } from 'lucide-react';
 
 interface FileTreeItemProps {
   item: {
+    id: number;
     name: string;
     type: 'file' | 'folder';
     icon: React.ComponentType<{ size?: number; className?: string }>;
+    hasChildren?: boolean;
     children?: any[];
   };
   level?: number;
@@ -30,22 +32,26 @@ const FileTreeItem: React.FC<FileTreeItemProps> = ({
   const paddingLeft = level * 12;
 
   if (item.type === 'folder') {
+    const folderColor = item.hasChildren 
+      ? 'text-blue-600 dark:text-blue-400' 
+      : 'text-gray-400 dark:text-gray-500';
+
     return (
-      <div key={item.name}>
+      <div key={`folder-${item.id}`}>
         <div 
           className="flex items-center p-2 hover:bg-gray-50 dark:hover:bg-gray-700 rounded cursor-pointer"
           style={{ paddingLeft: `${paddingLeft + 8}px` }}
           onClick={() => onToggleFolder(item.name)}
         >
           {isExpanded ? <ChevronDown size={14} className="mr-1 text-gray-500 dark:text-gray-400" /> : <ChevronRight size={14} className="mr-1 text-gray-500 dark:text-gray-400" />}
-          <item.icon size={16} className="text-gray-500 dark:text-gray-400 mr-2" />
+          <item.icon size={16} className={`mr-2 ${folderColor}`} />
           <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{item.name}</span>
         </div>
         {isExpanded && item.children && (
           <div>
             {item.children.map((child: any) => (
               <FileTreeItem
-                key={child.name}
+                key={`item-${child.id}`}
                 item={child}
                 level={level + 1}
                 expandedFolders={expandedFolders}
@@ -62,7 +68,7 @@ const FileTreeItem: React.FC<FileTreeItemProps> = ({
 
   return (
     <div 
-      key={item.name}
+      key={`file-${item.id}`}
       className="group flex items-center justify-between p-2 hover:bg-gray-50 dark:hover:bg-gray-700 rounded cursor-pointer"
       style={{ paddingLeft: `${paddingLeft + 8}px` }}
       onClick={() => onFileClick(item.name)}

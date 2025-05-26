@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -59,6 +60,15 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
     }
   };
 
+  // Function to refresh both FileManager and Sidebar after operations
+  const refreshData = async () => {
+    await loadFileTree();
+    // Trigger sidebar refresh if function exists
+    if ((window as any).refreshSidebarFileTree) {
+      (window as any).refreshSidebarFileTree();
+    }
+  };
+
   const getCurrentItems = (): TreeNode[] => {
     if (currentFolderId === null) {
       return fileTree;
@@ -89,8 +99,7 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
     });
 
     if (result.success && result.data) {
-      // Reload tree to get updated data
-      await loadFileTree();
+      await refreshData();
       setIsRenaming(result.data.id);
       setNewName('Yeni Klasör');
       toast({
@@ -115,8 +124,7 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
     });
 
     if (result.success && result.data) {
-      // Reload tree to get updated data
-      await loadFileTree();
+      await refreshData();
       setIsRenaming(result.data.id);
       setNewName('Yeni Belge.udf');
       toast({
@@ -136,7 +144,7 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
     if (type === 'file') {
       const result = await fileService.updateFile(id, { name: newName });
       if (result.success) {
-        await loadFileTree(); // Reload tree to get updated data
+        await refreshData();
         toast({
           title: "Başarılı",
           description: "Dosya yeniden adlandırıldı",
@@ -151,7 +159,7 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
     } else {
       const result = await folderService.updateFolder(id, { name: newName });
       if (result.success) {
-        await loadFileTree(); // Reload tree to get updated data
+        await refreshData();
         toast({
           title: "Başarılı",
           description: "Klasör yeniden adlandırıldı",
@@ -173,7 +181,7 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
     if (type === 'file') {
       const result = await fileService.deleteFile(id);
       if (result.success) {
-        await loadFileTree(); // Reload tree to get updated data
+        await refreshData();
         toast({
           title: "Başarılı",
           description: "Dosya silindi",
@@ -188,7 +196,7 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
     } else {
       const result = await folderService.deleteFolder(id);
       if (result.success) {
-        await loadFileTree(); // Reload tree to get updated data
+        await refreshData();
         toast({
           title: "Başarılı",
           description: "Klasör silindi",
@@ -236,7 +244,7 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
       if (draggedItem.type === 'file') {
         const result = await fileService.updateFile(draggedItem.id, { folder_id: targetId });
         if (result.success) {
-          await loadFileTree(); // Reload tree to get updated data
+          await refreshData();
           toast({
             title: "Başarılı",
             description: "Dosya taşındı",
@@ -251,7 +259,7 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
       } else {
         const result = await folderService.updateFolder(draggedItem.id, { parent_id: targetId });
         if (result.success) {
-          await loadFileTree(); // Reload tree to get updated data
+          await refreshData();
           toast({
             title: "Başarılı",
             description: "Klasör taşındı",
@@ -291,6 +299,20 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
       // Find folder by path - simplified for now
       setCurrentFolderId(null);
     }
+  };
+
+  const handleItemClick = (item: TreeNode) => {
+    if (isRenaming === item.id) return; // Prevent navigation when renaming
+    
+    if (item.type === 'folder') {
+      handleFolderNavigate(item.id, item.name);
+    }
+  };
+
+  const handleRenameClick = (e: React.MouseEvent, itemId: number, itemName: string) => {
+    e.stopPropagation(); // Prevent folder navigation
+    setIsRenaming(itemId);
+    setNewName(itemName);
   };
 
   const currentItems = getCurrentItems();
@@ -349,102 +371,115 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
             ) : (
               <>
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
-                  {currentItems.map((item) => (
-                    <div
-                      key={`${item.type}-${item.id}`}
-                      draggable
-                      onDragStart={(e) => handleDragStart(e, item.id, item.type)}
-                      onDragOver={(e) => handleDragOver(e, item.id, item.type)}
-                      onDragLeave={handleDragLeave}
-                      onDrop={(e) => handleDrop(e, item.id, item.type)}
-                      className={`flex flex-col items-center gap-2 p-3 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer transition-all bg-white dark:bg-gray-900 ${
-                        draggedItem?.id === item.id ? 'opacity-50 scale-95' : ''
-                      } ${
-                        dragOverItem === item.id && item.type === 'folder' ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' : ''
-                      }`}
-                      onDoubleClick={() => {
-                        if (item.type === 'folder') {
-                          handleFolderNavigate(item.id, item.name);
-                        }
-                      }}
-                    >
-                      <div className="flex-shrink-0">
-                        {item.type === 'folder' ? (
-                          <Folder size={32} className="text-blue-500 dark:text-blue-400" />
-                        ) : (
-                          <File size={32} className="text-gray-500 dark:text-gray-400" />
-                        )}
-                      </div>
-                      
-                      <div className="flex flex-col items-center text-center min-w-0 w-full">
-                        {isRenaming === item.id ? (
-                          <Input
-                            value={newName}
-                            onChange={(e) => setNewName(e.target.value)}
-                            onBlur={() => handleRename(item.id, item.type)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') {
-                                handleRename(item.id, item.type);
-                              } else if (e.key === 'Escape') {
-                                setIsRenaming(null);
-                                setNewName('');
-                              }
-                            }}
-                            className="h-6 text-xs text-center bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100"
-                            autoFocus
-                          />
-                        ) : (
-                          <span className="text-xs font-medium text-center break-words w-full text-gray-900 dark:text-gray-100">{item.name}</span>
-                        )}
+                  {currentItems.map((item) => {
+                    const hasChildren = item.children && item.children.length > 0;
+                    const folderColorClass = item.type === 'folder' 
+                      ? (hasChildren ? 'text-blue-500 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500')
+                      : 'text-gray-500 dark:text-gray-400';
+
+                    return (
+                      <div
+                        key={`${item.type}-${item.id}`}
+                        draggable
+                        onDragStart={(e) => handleDragStart(e, item.id, item.type)}
+                        onDragOver={(e) => handleDragOver(e, item.id, item.type)}
+                        onDragLeave={handleDragLeave}
+                        onDrop={(e) => handleDrop(e, item.id, item.type)}
+                        className={`flex items-center gap-3 p-3 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer transition-all bg-white dark:bg-gray-900 ${
+                          draggedItem?.id === item.id ? 'opacity-50 scale-95' : ''
+                        } ${
+                          dragOverItem === item.id && item.type === 'folder' ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' : ''
+                        }`}
+                        onClick={() => handleItemClick(item)}
+                      >
+                        <div className="flex-shrink-0">
+                          {item.type === 'folder' ? (
+                            <Folder size={32} className={folderColorClass} />
+                          ) : (
+                            <File size={32} className="text-gray-500 dark:text-gray-400" />
+                          )}
+                        </div>
                         
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-5 w-5 mt-1 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700">
-                              <MoreVertical size={12} />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-lg z-50">
-                            <DropdownMenuItem
-                              onClick={() => {
-                                setIsRenaming(item.id);
-                                setNewName(item.name);
+                        <div className="flex-1 min-w-0">
+                          {isRenaming === item.id ? (
+                            <Input
+                              value={newName}
+                              onChange={(e) => setNewName(e.target.value)}
+                              onBlur={() => handleRename(item.id, item.type)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  handleRename(item.id, item.type);
+                                } else if (e.key === 'Escape') {
+                                  setIsRenaming(null);
+                                  setNewName('');
+                                }
                               }}
-                              className="text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
+                              className="h-6 text-xs bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100"
+                              autoFocus
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                          ) : (
+                            <span 
+                              className="text-xs font-medium text-gray-900 dark:text-gray-100 truncate block"
+                              title={item.name}
                             >
-                              <Edit3 size={14} className="mr-2" />
-                              Yeniden Adlandır
-                            </DropdownMenuItem>
-                            
-                            <AlertDialog>
-                              <AlertDialogTrigger asChild>
-                                <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700">
-                                  <Trash2 size={14} className="mr-2" />
-                                  Sil
-                                </DropdownMenuItem>
-                              </AlertDialogTrigger>
-                              <AlertDialogContent className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
-                                <AlertDialogHeader>
-                                  <AlertDialogTitle className="text-gray-900 dark:text-gray-100">Silmeyi Onayla</AlertDialogTitle>
-                                  <AlertDialogDescription className="text-gray-600 dark:text-gray-400">
-                                    "{item.name}" öğesini silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.
-                                  </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                  <AlertDialogCancel className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600">İptal</AlertDialogCancel>
-                                  <AlertDialogAction
-                                    onClick={() => handleDelete(item.id, item.type)}
-                                    className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
-                                  >
+                              {item.name}
+                            </span>
+                          )}
+                        </div>
+                        
+                        <div className="flex-shrink-0">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="h-6 w-6 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <MoreVertical size={12} />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-lg z-50">
+                              <DropdownMenuItem
+                                onClick={(e) => handleRenameClick(e, item.id, item.name)}
+                                className="text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
+                              >
+                                <Edit3 size={14} className="mr-2" />
+                                Yeniden Adlandır
+                              </DropdownMenuItem>
+                              
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700">
+                                    <Trash2 size={14} className="mr-2" />
                                     Sil
-                                  </AlertDialogAction>
-                                </AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                                  </DropdownMenuItem>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle className="text-gray-900 dark:text-gray-100">Silmeyi Onayla</AlertDialogTitle>
+                                    <AlertDialogDescription className="text-gray-600 dark:text-gray-400">
+                                      "{item.name}" öğesini silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600">İptal</AlertDialogCancel>
+                                    <AlertDialogAction
+                                      onClick={() => handleDelete(item.id, item.type)}
+                                      className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+                                    >
+                                      Sil
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </>
             )}
