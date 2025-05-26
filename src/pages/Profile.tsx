@@ -8,8 +8,28 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { User, Mail, Calendar, Shield, Crown, Settings } from 'lucide-react';
+import { User, Mail, Calendar, Shield, Crown, Settings, UserX } from 'lucide-react';
 import { toast } from "@/hooks/use-toast";
+import { authService } from '@/services/authService';
+
+interface ProfileData {
+  id: number;
+  first_name: string;
+  last_name: string;
+  email: string;
+  totalDocuments: number;
+  totalMonthlyCreatedDocuments: number;
+  subscription?: {
+    expiry_date: string;
+    plan: {
+      name: string;
+      description: string;
+      features: string[];
+      price: string;
+    };
+  };
+  is_active: boolean;
+}
 
 const ProfileSkeleton = () => (
   <div className="space-y-6">
@@ -100,21 +120,42 @@ const ProfileSkeleton = () => (
 const Profile = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [profileData, setProfileData] = useState<ProfileData | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
-    firstName: 'John',
-    lastName: 'Doe',
-    email: 'john.doe@example.com',
+    firstName: '',
+    lastName: '',
+    email: '',
     currentPassword: '',
     newPassword: '',
     confirmPassword: ''
   });
 
-  // Simulate loading
-  useEffect(() => {
-    const timer = setTimeout(() => {
+  const fetchProfileData = async () => {
+    try {
+      setLoading(true);
+      const result = await authService.getProfile();
+      if (result.success && result.data) {
+        setProfileData(result.data);
+        setFormData(prev => ({
+          ...prev,
+          firstName: result.data.first_name,
+          lastName: result.data.last_name,
+          email: result.data.email
+        }));
+      } else {
+        setError('Profil bilgileri yüklenirken bir hata oluştu.');
+      }
+    } catch (err) {
+      setError('Profil bilgileri yüklenirken bir hata oluştu.');
+      console.error('Profile fetch error:', err);
+    } finally {
       setLoading(false);
-    }, 1500);
-    return () => clearTimeout(timer);
+    }
+  };
+
+  useEffect(() => {
+    fetchProfileData();
   }, []);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -129,32 +170,74 @@ const Profile = () => {
     e.preventDefault();
     setSaving(true);
     
-    setTimeout(() => {
-      setSaving(false);
-      toast({
-        title: "Profil güncellendi!",
-        description: "Profil bilgileriniz başarıyla güncellendi.",
+    try {
+      const result = await authService.updatePersonalInfo({
+        first_name: formData.firstName,
+        last_name: formData.lastName
       });
-    }, 1500);
+
+      if (result.success) {
+        toast({
+          title: "Profil güncellendi!",
+          description: "Profil bilgileriniz başarıyla güncellendi.",
+        });
+        fetchProfileData(); // Refresh profile data
+      } else {
+        toast({
+          title: "Hata!",
+          description: "Profil güncellenirken bir hata oluştu.",
+          variant: "destructive"
+        });
+      }
+    } catch (err) {
+      toast({
+        title: "Hata!",
+        description: "Profil güncellenirken bir hata oluştu.",
+        variant: "destructive"
+      });
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handlePasswordUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
     
-    setTimeout(() => {
-      setSaving(false);
-      toast({
-        title: "Şifre güncellendi!",
-        description: "Şifreniz başarıyla değiştirildi.",
+    try {
+      const result = await authService.updatePassword({
+        current_password: formData.currentPassword,
+        password: formData.newPassword,
+        password_confirmation: formData.confirmPassword
       });
-      setFormData(prev => ({
-        ...prev,
-        currentPassword: '',
-        newPassword: '',
-        confirmPassword: ''
-      }));
-    }, 1500);
+
+      if (result.success) {
+        toast({
+          title: "Şifre güncellendi!",
+          description: "Şifreniz başarıyla değiştirildi.",
+        });
+        setFormData(prev => ({
+          ...prev,
+          currentPassword: '',
+          newPassword: '',
+          confirmPassword: ''
+        }));
+      } else {
+        toast({
+          title: "Hata!",
+          description: "Şifre güncellenirken bir hata oluştu.",
+          variant: "destructive"
+        });
+      }
+    } catch (err) {
+      toast({
+        title: "Hata!",
+        description: "Şifre güncellenirken bir hata oluştu.",
+        variant: "destructive"
+      });
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (loading) {
@@ -168,6 +251,38 @@ const Profile = () => {
       </div>
     );
   }
+
+  if (error || !profileData) {
+    return (
+      <div className="container mx-auto p-6 max-w-4xl">
+        <div className="text-center py-8">
+          <p className="text-red-500">{error || 'Profil bilgileri yüklenemedi.'}</p>
+        </div>
+      </div>
+    );
+  }
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('tr-TR');
+  };
+
+  const getUserStatus = () => {
+    if (profileData.subscription?.plan?.name) {
+      return {
+        label: profileData.subscription.plan.name,
+        icon: Crown,
+        variant: "default" as const
+      };
+    }
+    return {
+      label: "Ziyaretçi",
+      icon: UserX,
+      variant: "secondary" as const
+    };
+  };
+
+  const userStatus = getUserStatus();
+  const StatusIcon = userStatus.icon;
 
   return (
     <div className="container mx-auto p-6 max-w-4xl">
@@ -183,18 +298,18 @@ const Profile = () => {
             <Avatar className="h-20 w-20">
               <AvatarImage src="/placeholder.svg" alt="Profile" />
               <AvatarFallback className="text-lg">
-                {formData.firstName.charAt(0)}{formData.lastName.charAt(0)}
+                {profileData.first_name.charAt(0)}{profileData.last_name.charAt(0)}
               </AvatarFallback>
             </Avatar>
             <div>
-              <h2 className="text-2xl font-bold">{formData.firstName} {formData.lastName}</h2>
+              <h2 className="text-2xl font-bold">{profileData.first_name} {profileData.last_name}</h2>
               <p className="text-gray-600 dark:text-gray-400 flex items-center gap-2">
                 <Mail className="h-4 w-4" />
-                {formData.email}
+                {profileData.email}
               </p>
-              <Badge className="mt-2">
-                <Crown className="h-3 w-3 mr-1" />
-                Pro Üye
+              <Badge className="mt-2" variant={userStatus.variant}>
+                <StatusIcon className="h-3 w-3 mr-1" />
+                {userStatus.label}
               </Badge>
             </div>
           </div>
@@ -244,6 +359,7 @@ const Profile = () => {
                   value={formData.email}
                   onChange={handleInputChange}
                   className="bg-white dark:bg-gray-700"
+                  disabled
                 />
               </div>
               <Button type="submit" disabled={saving}>
@@ -322,24 +438,24 @@ const Profile = () => {
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <div>
               <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Toplam Belge</p>
-              <p className="text-2xl font-bold">24</p>
+              <p className="text-2xl font-bold">{profileData.totalDocuments}</p>
             </div>
             <div>
               <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Bu Ay Oluşturulan</p>
-              <p className="text-2xl font-bold">8</p>
+              <p className="text-2xl font-bold">{profileData.totalMonthlyCreatedDocuments}</p>
             </div>
             <div>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Hesap Oluşturma</p>
-              <p className="text-2xl font-bold flex items-center gap-2">
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Abonelik Bitiş</p>
+              <p className="text-lg font-bold flex items-center gap-2">
                 <Calendar className="h-4 w-4" />
-                2024
+                {profileData.subscription?.expiry_date ? formatDate(profileData.subscription.expiry_date) : 'Yok'}
               </p>
             </div>
             <div>
               <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Plan Durumu</p>
-              <Badge className="text-lg px-3 py-1">
-                <Crown className="h-4 w-4 mr-1" />
-                Aktif
+              <Badge className="text-lg px-3 py-1" variant={profileData.is_active ? "default" : "destructive"}>
+                <StatusIcon className="h-4 w-4 mr-1" />
+                {profileData.is_active ? 'Aktif' : 'Pasif'}
               </Badge>
             </div>
           </div>

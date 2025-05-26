@@ -56,6 +56,25 @@ export interface PasswordUpdateData {
   password_confirmation: string;
 }
 
+export interface ProfileData {
+  id: number;
+  first_name: string;
+  last_name: string;
+  email: string;
+  totalDocuments: number;
+  totalMonthlyCreatedDocuments: number;
+  subscription?: {
+    expiry_date: string;
+    plan: {
+      name: string;
+      description: string;
+      features: string[];
+      price: string;
+    };
+  };
+  is_active: boolean;
+}
+
 class AuthService {
   private token: string | null = null;
   private user: User | null = null;
@@ -195,7 +214,7 @@ class AuthService {
     }
   }
 
-  async getProfile(): Promise<{ success: boolean; data?: User; errors?: ApiError }> {
+  async getProfile(): Promise<{ success: boolean; data?: ProfileData; errors?: ApiError }> {
     try {
       const response = await fetch(`${API_BASE_URL}/profile/show`, {
         method: 'GET',
@@ -210,10 +229,18 @@ class AuthService {
       if (response.ok && data.success) {
         // Update the local user data
         if (data.data && data.data.user) {
-          this.user = data.data.user;
+          const userData = data.data.user;
+          this.user = {
+            id: userData.id,
+            first_name: userData.first_name,
+            last_name: userData.last_name,
+            email: userData.email,
+            profile_image: userData.profile_image || null,
+            subscription_expiry_date: userData.subscription?.expiry_date
+          };
           localStorage.setItem('auth_user', JSON.stringify(this.user));
         }
-        return { success: true, data: data.data?.user };
+        return { success: true, data: data.data.user };
       } else {
         return { success: false, errors: data };
       }
