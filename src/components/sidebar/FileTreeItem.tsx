@@ -10,7 +10,7 @@ interface FileTreeItemProps {
     id: number;
     name: string;
     type: 'file' | 'folder';
-    icon: React.ComponentType<{ size?: number; className?: string }>;
+    icon: React.ComponentType<{ size?: number; className?: string; color?: string }>;
     hasChildren?: boolean;
     children?: any[];
     color?: string;
@@ -49,7 +49,7 @@ const FileTreeItem: React.FC<FileTreeItemProps> = ({
           <item.icon 
             size={16} 
             className={`mr-2 ${folderColor}`} 
-            style={{ color: item.color || undefined }}
+            color={item.color || undefined}
           />
           <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{item.name}</span>
         </div>
@@ -83,7 +83,7 @@ const FileTreeItem: React.FC<FileTreeItemProps> = ({
         <item.icon 
           size={16} 
           className="text-gray-500 dark:text-gray-400 mr-2 flex-shrink-0" 
-          style={{ color: item.color || undefined }}
+          color={item.color || undefined}
         />
         <span className="text-sm font-medium truncate text-gray-900 dark:text-gray-100">{item.name}</span>
       </div>
