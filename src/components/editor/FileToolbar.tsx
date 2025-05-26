@@ -2,13 +2,13 @@
 import React, { useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { FileText, Save, Printer, FolderOpen, Moon, Sun, User } from 'lucide-react';
+import { FileText, Save, Printer, FolderOpen, Moon, Sun } from 'lucide-react';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { useDarkMode } from '@/contexts/DarkModeContext';
+import { useAuth } from '@/contexts/AuthContext';
 import NavbarSignatureButtons from '@/components/navbar/NavbarSignatureButtons';
 import MobileSignatureDialog from '@/components/MobileSignatureDialog';
 import ESignatureDialog from '@/components/ESignatureDialog';
-import LoginModal from '@/components/LoginModal';
 
 interface FileToolbarProps {
   onNewDocument: () => void;
@@ -25,9 +25,9 @@ const FileToolbar: React.FC<FileToolbarProps> = ({
 }) => {
   const isMobile = useMediaQuery('(max-width: 768px)');
   const { isDarkMode, toggleDarkMode } = useDarkMode();
+  const { isAuthenticated } = useAuth();
   const [mobileSignatureOpen, setMobileSignatureOpen] = useState(false);
   const [eSignatureOpen, setESignatureOpen] = useState(false);
-  const [loginModalOpen, setLoginModalOpen] = useState(false);
 
   return (
     <>
@@ -52,6 +52,7 @@ const FileToolbar: React.FC<FileToolbarProps> = ({
                     size="icon" 
                     className={`${isMobile ? "h-7 w-7" : "h-8 w-8"} hover:bg-gray-200 dark:hover:bg-gray-700 dark:text-gray-200`}
                     onClick={onNewDocument}
+                    disabled={!isAuthenticated}
                   >
                     <FileText size={isMobile ? 14 : 16} />
                   </Button>
@@ -66,6 +67,7 @@ const FileToolbar: React.FC<FileToolbarProps> = ({
                     size="icon" 
                     className={`${isMobile ? "h-7 w-7" : "h-8 w-8"} hover:bg-gray-200 dark:hover:bg-gray-700 dark:text-gray-200`}
                     onClick={onOpenDocument}
+                    disabled={!isAuthenticated}
                   >
                     <FolderOpen size={isMobile ? 14 : 16} />
                   </Button>
@@ -80,6 +82,7 @@ const FileToolbar: React.FC<FileToolbarProps> = ({
                     size="icon" 
                     className={`${isMobile ? "h-7 w-7" : "h-8 w-8"} hover:bg-gray-200 dark:hover:bg-gray-700 dark:text-gray-200`}
                     onClick={onSaveDocument}
+                    disabled={!isAuthenticated}
                   >
                     <Save size={isMobile ? 14 : 16} />
                   </Button>
@@ -94,6 +97,7 @@ const FileToolbar: React.FC<FileToolbarProps> = ({
                     size="icon" 
                     className={`${isMobile ? "h-7 w-7" : "h-8 w-8"} hover:bg-gray-200 dark:hover:bg-gray-700 dark:text-gray-200`}
                     onClick={onPrintDocument}
+                    disabled={!isAuthenticated}
                   >
                     <Printer size={isMobile ? 14 : 16} />
                   </Button>
@@ -102,7 +106,7 @@ const FileToolbar: React.FC<FileToolbarProps> = ({
               </Tooltip>
             </div>
             
-            {/* Dark Mode Toggle ve Login */}
+            {/* Dark Mode Toggle */}
             <div className="flex items-center gap-1">
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -117,20 +121,6 @@ const FileToolbar: React.FC<FileToolbarProps> = ({
                 </TooltipTrigger>
                 <TooltipContent>{isDarkMode ? 'Açık Tema' : 'Koyu Tema'}</TooltipContent>
               </Tooltip>
-              
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    className={`${isMobile ? "h-7 w-7" : "h-8 w-8"} hover:bg-gray-200 dark:hover:bg-gray-700 dark:text-gray-200`}
-                    onClick={() => setLoginModalOpen(true)}
-                  >
-                    <User size={isMobile ? 14 : 16} />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Giriş Yap</TooltipContent>
-              </Tooltip>
             </div>
           </div>
         </TooltipProvider>
@@ -139,7 +129,6 @@ const FileToolbar: React.FC<FileToolbarProps> = ({
       {/* Dialog components */}
       <MobileSignatureDialog open={mobileSignatureOpen} onOpenChange={setMobileSignatureOpen} />
       <ESignatureDialog open={eSignatureOpen} onOpenChange={setESignatureOpen} />
-      <LoginModal open={loginModalOpen} onOpenChange={setLoginModalOpen} />
     </>
   );
 };

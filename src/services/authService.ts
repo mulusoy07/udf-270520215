@@ -7,6 +7,7 @@ export interface User {
   last_name: string;
   email: string;
   profile_image: string | null;
+  subscription_expiry_date?: string;
 }
 
 export interface AuthResponse {
@@ -24,6 +25,21 @@ export interface ValidationError {
 export interface ApiError {
   success: false;
   message: string;
+}
+
+export interface ProfileUpdateData {
+  first_name: string;
+  last_name: string;
+  current_password?: string;
+  password?: string;
+  password_confirmation?: string;
+}
+
+export interface SubscriptionData {
+  expiry_date: string;
+  remaining_days: number;
+  plan_name?: string;
+  is_active?: boolean;
 }
 
 class AuthService {
@@ -97,6 +113,91 @@ class AuthService {
       }
     } catch (error) {
       console.error('Register error:', error);
+      return { 
+        success: false, 
+        errors: { success: false, message: 'Bağlantı hatası oluştu' } 
+      };
+    }
+  }
+
+  async updateProfile(profileData: ProfileUpdateData): Promise<{ success: boolean; data?: User; errors?: ValidationError | ApiError }> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/profile`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.token}`,
+          'ngrok-skip-browser-warning': 'true',
+        },
+        body: JSON.stringify(profileData),
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        // Update the local user data
+        if (data.data && data.data.user) {
+          this.user = data.data.user;
+          localStorage.setItem('auth_user', JSON.stringify(this.user));
+        }
+        return { success: true, data: data.data?.user };
+      } else {
+        return { success: false, errors: data };
+      }
+    } catch (error) {
+      console.error('Profile update error:', error);
+      return { 
+        success: false, 
+        errors: { success: false, message: 'Bağlantı hatası oluştu' } 
+      };
+    }
+  }
+
+  async getSubscription(): Promise<{ success: boolean; data?: SubscriptionData; errors?: ApiError }> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/subscriptions`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${this.token}`,
+          'ngrok-skip-browser-warning': 'true',
+        },
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        return { success: true, data: data.data };
+      } else {
+        return { success: false, errors: data };
+      }
+    } catch (error) {
+      console.error('Subscription fetch error:', error);
+      return { 
+        success: false, 
+        errors: { success: false, message: 'Bağlantı hatası oluştu' } 
+      };
+    }
+  }
+
+  async renewSubscription(): Promise<{ success: boolean; errors?: ApiError }> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/subscriptions/renew`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.token}`,
+          'ngrok-skip-browser-warning': 'true',
+        },
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        return { success: true };
+      } else {
+        return { success: false, errors: data };
+      }
+    } catch (error) {
+      console.error('Subscription renewal error:', error);
       return { 
         success: false, 
         errors: { success: false, message: 'Bağlantı hatası oluştu' } 

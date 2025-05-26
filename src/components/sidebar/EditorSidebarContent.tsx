@@ -2,7 +2,9 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { History, Folder, FileSignature, User, Download, FolderOpen, LayoutTemplate } from 'lucide-react';
+import { History, Folder, FileSignature, User, Download, FolderOpen, LayoutTemplate, Settings, CreditCard, LogOut } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
 import SidebarSection from './SidebarSection';
 import RecentDocumentItem from './RecentDocumentItem';
 import FileTreeItem from './FileTreeItem';
@@ -53,6 +55,22 @@ const EditorSidebarContent: React.FC<EditorSidebarContentProps> = ({
   recentDocs,
   fileTree
 }) => {
+  const { isAuthenticated, logout, user } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    logout();
+    navigate('/');
+  };
+
+  const handleProfileClick = () => {
+    navigate('/profile');
+  };
+
+  const handleSubscriptionsClick = () => {
+    navigate('/subscriptions');
+  };
+
   return (
     <div className="bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 w-64">
       <ScrollArea className="h-full">
@@ -161,26 +179,42 @@ const EditorSidebarContent: React.FC<EditorSidebarContentProps> = ({
               open={accountOpen}
               onOpenChange={setAccountOpen}
             >
-              <div className="p-2 hover:bg-gray-50 dark:hover:bg-gray-700 rounded cursor-pointer" onClick={() => setLoginModalOpen(true)}>
-                <div className="text-sm font-medium text-gray-900 dark:text-gray-100">Giriş Yap / Kayıt Ol</div>
-                <div className="text-xs text-gray-500 dark:text-gray-400">Hesabınıza giriş yapın</div>
-              </div>
-              <div className="p-2 hover:bg-gray-50 dark:hover:bg-gray-700 rounded cursor-pointer">
-                <div className="text-sm font-medium text-gray-900 dark:text-gray-100">Profil Bilgileri</div>
-                <div className="text-xs text-gray-500 dark:text-gray-400">Kullanıcı bilgilerini düzenle</div>
-              </div>
-              <div className="p-2 hover:bg-gray-50 dark:hover:bg-gray-700 rounded cursor-pointer">
-                <div className="text-sm font-medium text-gray-900 dark:text-gray-100">Güvenlik Ayarları</div>
-                <div className="text-xs text-gray-500 dark:text-gray-400">Şifre ve güvenlik seçenekleri</div>
-              </div>
-              <div className="p-2 hover:bg-gray-50 dark:hover:bg-gray-700 rounded cursor-pointer">
-                <div className="text-sm font-medium text-gray-900 dark:text-gray-100">Abonelik Bilgileri</div>
-                <div className="text-xs text-gray-500 dark:text-gray-400">Plan ve ödeme bilgileri</div>
-              </div>
-              <div className="p-2 hover:bg-gray-50 dark:hover:bg-gray-700 rounded cursor-pointer">
-                <div className="text-sm font-medium text-gray-900 dark:text-gray-100">Çıkış Yap</div>
-                <div className="text-xs text-gray-500 dark:text-gray-400">Hesaptan güvenli çıkış</div>
-              </div>
+              {isAuthenticated ? (
+                <div className="space-y-2">
+                  <div className="p-2 hover:bg-gray-50 dark:hover:bg-gray-700 rounded cursor-pointer" onClick={handleProfileClick}>
+                    <div className="flex items-center gap-2">
+                      <Settings size={16} className="text-gray-500 dark:text-gray-400" />
+                      <div>
+                        <div className="text-sm font-medium text-gray-900 dark:text-gray-100">Profilim</div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">Kişisel bilgileri düzenle</div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="p-2 hover:bg-gray-50 dark:hover:bg-gray-700 rounded cursor-pointer" onClick={handleSubscriptionsClick}>
+                    <div className="flex items-center gap-2">
+                      <CreditCard size={16} className="text-gray-500 dark:text-gray-400" />
+                      <div>
+                        <div className="text-sm font-medium text-gray-900 dark:text-gray-100">Aboneliklerim</div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">Plan ve ödeme bilgileri</div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="p-2 hover:bg-gray-50 dark:hover:bg-gray-700 rounded cursor-pointer" onClick={handleLogout}>
+                    <div className="flex items-center gap-2">
+                      <LogOut size={16} className="text-gray-500 dark:text-gray-400" />
+                      <div>
+                        <div className="text-sm font-medium text-gray-900 dark:text-gray-100">Çıkış Yap</div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">Hesaptan güvenli çıkış</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="p-2 hover:bg-gray-50 dark:hover:bg-gray-700 rounded cursor-pointer" onClick={() => setLoginModalOpen(true)}>
+                  <div className="text-sm font-medium text-gray-900 dark:text-gray-100">Giriş Yap / Kayıt Ol</div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400">Hesabınıza giriş yapın</div>
+                </div>
+              )}
             </SidebarSection>
           </div>
         </div>

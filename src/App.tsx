@@ -8,6 +8,8 @@ import { DarkModeProvider } from "@/contexts/DarkModeContext";
 import { AuthProvider } from "@/contexts/AuthContext";
 import Index from "./pages/Index";
 import Editor from "./pages/Editor";
+import Profile from "./pages/Profile";
+import Subscriptions from "./pages/Subscriptions";
 
 const queryClient = new QueryClient();
 
@@ -22,6 +24,8 @@ const App = () => (
             <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/editor" element={<Editor />} />
+              <Route path="/profile" element={<Profile />} />
+              <Route path="/subscriptions" element={<Subscriptions />} />
             </Routes>
           </BrowserRouter>
         </TooltipProvider>

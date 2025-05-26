@@ -5,6 +5,7 @@ import EditorSidebar from '@/components/EditorSidebar';
 import EditorContent from '@/components/EditorContent';
 import DocumentDialog from '@/components/DocumentDialog';
 import AuthModal from '@/components/AuthModal';
+import EditorSkeleton from '@/components/EditorSkeleton';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
@@ -59,19 +60,30 @@ const EditorPage = () => {
     );
   }
 
+  // Show skeleton when not authenticated
+  if (!isAuthenticated) {
+    return (
+      <div className="relative">
+        <EditorSkeleton />
+        <AuthModal 
+          open={authModalOpen}
+          onOpenChange={setAuthModalOpen}
+        />
+      </div>
+    );
+  }
+
+  // Show actual editor when authenticated
   return (
     <div className="min-h-screen flex flex-col bg-white dark:bg-gray-900">
-      {/* Blurred background when auth modal is open */}
-      <div className={`flex-1 flex overflow-hidden transition-all duration-300 ${!isAuthenticated ? 'blur-sm pointer-events-none' : ''}`}>
+      <div className="flex-1 flex overflow-hidden">
         <div className="flex flex-1 w-full overflow-hidden relative">
-          {/* Always render sidebar, but with collapsed state */}
           <EditorSidebar 
             collapsed={sidebarCollapsed}
             setCollapsed={setSidebarCollapsed}
             onDocumentLoad={handleDocumentLoad}
           />
           
-          {/* Toggle button - positioned correctly for both states */}
           <Button
             variant="ghost"
             size="sm"
@@ -84,7 +96,6 @@ const EditorPage = () => {
               transition: 'left 0.3s ease'
             }}
             onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-            disabled={!isAuthenticated}
           >
             {sidebarCollapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
           </Button>
@@ -95,19 +106,10 @@ const EditorPage = () => {
         </div>
       </div>
       
-      {/* Auth Modal */}
-      <AuthModal 
-        open={authModalOpen}
-        onOpenChange={setAuthModalOpen}
+      <DocumentDialog 
+        open={documentDialogOpen}
+        onOpenChange={setDocumentDialogOpen}
       />
-      
-      {/* Document Dialog - only show when authenticated */}
-      {isAuthenticated && (
-        <DocumentDialog 
-          open={documentDialogOpen}
-          onOpenChange={setDocumentDialogOpen}
-        />
-      )}
     </div>
   );
 };
