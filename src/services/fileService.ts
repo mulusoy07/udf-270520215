@@ -1,5 +1,5 @@
 
-const API_BASE_URL = 'http://localhost:8000/api';
+import { API_CONFIG, getAuthHeaders, handleUnauthorizedResponse } from '@/config/api';
 
 export interface TreeNode {
   id: number;
@@ -11,23 +11,21 @@ export interface TreeNode {
   children?: TreeNode[];
 }
 
-// Get auth token from localStorage
-const getAuthHeaders = () => {
-  const token = localStorage.getItem('auth_token');
-  return {
-    'Content-Type': 'application/json',
-    'Authorization': token ? `Bearer ${token}` : '',
-  };
-};
-
 export const fileService = {
   // Get complete file tree structure
   getFileTree: async (): Promise<{ success: boolean; data?: TreeNode[]; message?: string }> => {
     try {
-      const response = await fetch(`${API_BASE_URL}/myfiles/tree`, {
+      const response = await fetch(`${API_CONFIG.BASE_URL}/myfiles/tree`, {
         method: 'GET',
         headers: getAuthHeaders(),
       });
+
+      if (handleUnauthorizedResponse(response)) {
+        return {
+          success: false,
+          message: 'Oturum süresi doldu'
+        };
+      }
 
       const result = await response.json();
       
@@ -54,11 +52,18 @@ export const fileService = {
     color?: string;
   }): Promise<{ success: boolean; data?: any; message?: string }> => {
     try {
-      const response = await fetch(`${API_BASE_URL}/files`, {
+      const response = await fetch(`${API_CONFIG.BASE_URL}/files`, {
         method: 'POST',
         headers: getAuthHeaders(),
         body: JSON.stringify(data),
       });
+
+      if (handleUnauthorizedResponse(response)) {
+        return {
+          success: false,
+          message: 'Oturum süresi doldu'
+        };
+      }
 
       const result = await response.json();
       
@@ -84,11 +89,18 @@ export const fileService = {
     color?: string;
   }): Promise<{ success: boolean; data?: any; message?: string }> => {
     try {
-      const response = await fetch(`${API_BASE_URL}/files/${id}`, {
+      const response = await fetch(`${API_CONFIG.BASE_URL}/files/${id}`, {
         method: 'PUT',
         headers: getAuthHeaders(),
         body: JSON.stringify(data),
       });
+
+      if (handleUnauthorizedResponse(response)) {
+        return {
+          success: false,
+          message: 'Oturum süresi doldu'
+        };
+      }
 
       const result = await response.json();
       
@@ -109,10 +121,17 @@ export const fileService = {
   // Delete file
   deleteFile: async (id: number): Promise<{ success: boolean; message?: string }> => {
     try {
-      const response = await fetch(`${API_BASE_URL}/files/${id}`, {
+      const response = await fetch(`${API_CONFIG.BASE_URL}/files/${id}`, {
         method: 'DELETE',
         headers: getAuthHeaders(),
       });
+
+      if (handleUnauthorizedResponse(response)) {
+        return {
+          success: false,
+          message: 'Oturum süresi doldu'
+        };
+      }
 
       const result = await response.json();
       
@@ -140,11 +159,18 @@ export const folderService = {
     color?: string;
   }): Promise<{ success: boolean; data?: any; message?: string }> => {
     try {
-      const response = await fetch(`${API_BASE_URL}/folders`, {
+      const response = await fetch(`${API_CONFIG.BASE_URL}/folders`, {
         method: 'POST',
         headers: getAuthHeaders(),
         body: JSON.stringify(data),
       });
+
+      if (handleUnauthorizedResponse(response)) {
+        return {
+          success: false,
+          message: 'Oturum süresi doldu'
+        };
+      }
 
       const result = await response.json();
       
@@ -169,11 +195,18 @@ export const folderService = {
     color?: string;
   }): Promise<{ success: boolean; data?: any; message?: string }> => {
     try {
-      const response = await fetch(`${API_BASE_URL}/folders/${id}`, {
+      const response = await fetch(`${API_CONFIG.BASE_URL}/folders/${id}`, {
         method: 'PUT',
         headers: getAuthHeaders(),
         body: JSON.stringify(data),
       });
+
+      if (handleUnauthorizedResponse(response)) {
+        return {
+          success: false,
+          message: 'Oturum süresi doldu'
+        };
+      }
 
       const result = await response.json();
       
@@ -194,10 +227,17 @@ export const folderService = {
   // Delete folder
   deleteFolder: async (id: number): Promise<{ success: boolean; message?: string }> => {
     try {
-      const response = await fetch(`${API_BASE_URL}/folders/${id}`, {
+      const response = await fetch(`${API_CONFIG.BASE_URL}/folders/${id}`, {
         method: 'DELETE',
         headers: getAuthHeaders(),
       });
+
+      if (handleUnauthorizedResponse(response)) {
+        return {
+          success: false,
+          message: 'Oturum süresi doldu'
+        };
+      }
 
       const result = await response.json();
       

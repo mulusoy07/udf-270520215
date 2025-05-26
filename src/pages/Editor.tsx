@@ -4,7 +4,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import EditorSidebar from '@/components/EditorSidebar';
 import EditorContent from '@/components/EditorContent';
 import DocumentDialog from '@/components/DocumentDialog';
-import AuthModal from '@/components/AuthModal';
 import EditorSkeleton from '@/components/EditorSkeleton';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -12,7 +11,6 @@ import { useMediaQuery } from '@/hooks/useMediaQuery';
 
 const EditorPage = () => {
   const { isAuthenticated, isLoading } = useAuth();
-  const [authModalOpen, setAuthModalOpen] = useState(false);
   const [documentDialogOpen, setDocumentDialogOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [documentContent, setDocumentContent] = useState('');
@@ -25,12 +23,8 @@ const EditorPage = () => {
   
   // Check authentication when component mounts
   useEffect(() => {
-    if (!isLoading) {
-      if (!isAuthenticated) {
-        setAuthModalOpen(true);
-      } else {
-        setDocumentDialogOpen(true);
-      }
+    if (!isLoading && isAuthenticated) {
+      setDocumentDialogOpen(true);
     }
   }, [isAuthenticated, isLoading]);
 
@@ -62,15 +56,7 @@ const EditorPage = () => {
 
   // Show skeleton when not authenticated
   if (!isAuthenticated) {
-    return (
-      <div className="relative">
-        <EditorSkeleton />
-        <AuthModal 
-          open={authModalOpen}
-          onOpenChange={setAuthModalOpen}
-        />
-      </div>
-    );
+    return <EditorSkeleton />;
   }
 
   // Show actual editor when authenticated

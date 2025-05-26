@@ -1,4 +1,4 @@
-const API_BASE_URL = 'https://b6f0-46-1-181-143.ngrok-free.app/api';
+import { API_CONFIG, getAuthHeaders, handleUnauthorizedResponse } from '@/config/api';
 
 export interface User {
   id: number;
@@ -78,6 +78,7 @@ export interface ProfileData {
 class AuthService {
   private token: string | null = null;
   private user: User | null = null;
+  private sessionCheckInterval: NodeJS.Timeout | null = null;
 
   constructor() {
     this.token = localStorage.getItem('auth_token');
@@ -90,11 +91,52 @@ class AuthService {
         this.clearAuth();
       }
     }
+    
+    // Start session checking if user is authenticated
+    if (this.isAuthenticated()) {
+      this.startSessionCheck();
+    }
+  }
+
+  private startSessionCheck(): void {
+    if (this.sessionCheckInterval) {
+      clearInterval(this.sessionCheckInterval);
+    }
+    
+    this.sessionCheckInterval = setInterval(async () => {
+      await this.validateSession();
+    }, API_CONFIG.SESSION_CHECK_INTERVAL);
+  }
+
+  private stopSessionCheck(): void {
+    if (this.sessionCheckInterval) {
+      clearInterval(this.sessionCheckInterval);
+      this.sessionCheckInterval = null;
+    }
+  }
+
+  private async validateSession(): Promise<boolean> {
+    try {
+      const response = await fetch(`${API_CONFIG.BASE_URL}/auth/validate`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+      });
+
+      if (handleUnauthorizedResponse(response)) {
+        this.clearAuth();
+        return false;
+      }
+
+      return response.ok;
+    } catch (error) {
+      console.error('Session validation error:', error);
+      return false;
+    }
   }
 
   async login(email: string, password: string): Promise<{ success: boolean; data?: AuthResponse['data']; errors?: ValidationError | ApiError }> {
     try {
-      const response = await fetch(`${API_BASE_URL}/auth/login`, {
+      const response = await fetch(`${API_CONFIG.BASE_URL}/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -107,6 +149,7 @@ class AuthService {
 
       if (response.ok && data.success) {
         this.setAuth(data.data.token, data.data.user);
+        this.startSessionCheck();
         return { success: true, data: data.data };
       } else {
         return { success: false, errors: data };
@@ -122,7 +165,7 @@ class AuthService {
 
   async register(firstName: string, lastName: string, email: string, password: string): Promise<{ success: boolean; data?: AuthResponse['data']; errors?: ValidationError | ApiError }> {
     try {
-      const response = await fetch(`${API_BASE_URL}/auth/register`, {
+      const response = await fetch(`${API_CONFIG.BASE_URL}/auth/register`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -140,6 +183,7 @@ class AuthService {
 
       if (response.ok && data.success) {
         this.setAuth(data.data.token, data.data.user);
+        this.startSessionCheck();
         return { success: true, data: data.data };
       } else {
         return { success: false, errors: data };
@@ -155,15 +199,16 @@ class AuthService {
 
   async updatePersonalInfo(personalData: PersonalInfoUpdateData): Promise<{ success: boolean; data?: User; errors?: ValidationError | ApiError }> {
     try {
-      const response = await fetch(`${API_BASE_URL}/profile/update`, {
+      const response = await fetch(`${API_CONFIG.BASE_URL}/profile/update`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.token}`,
-          'ngrok-skip-browser-warning': 'true',
-        },
+        headers: getAuthHeaders(),
         body: JSON.stringify(personalData),
       });
+
+      if (handleUnauthorizedResponse(response)) {
+        this.clearAuth();
+        return { success: false, errors: { success: false, message: 'Oturum süresi doldu' } };
+      }
 
       const data = await response.json();
 
@@ -188,15 +233,16 @@ class AuthService {
 
   async updatePassword(passwordData: PasswordUpdateData): Promise<{ success: boolean; errors?: ValidationError | ApiError }> {
     try {
-      const response = await fetch(`${API_BASE_URL}/profile/password`, {
+      const response = await fetch(`${API_CONFIG.BASE_URL}/profile/password`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.token}`,
-          'ngrok-skip-browser-warning': 'true',
-        },
+        headers: getAuthHeaders(),
         body: JSON.stringify(passwordData),
       });
+
+      if (handleUnauthorizedResponse(response)) {
+        this.clearAuth();
+        return { success: false, errors: { success: false, message: 'Oturum süresi doldu' } };
+      }
 
       const data = await response.json();
 
@@ -216,13 +262,15 @@ class AuthService {
 
   async getProfile(): Promise<{ success: boolean; data?: ProfileData; errors?: ApiError }> {
     try {
-      const response = await fetch(`${API_BASE_URL}/profile/show`, {
+      const response = await fetch(`${API_CONFIG.BASE_URL}/profile/show`, {
         method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${this.token}`,
-          'ngrok-skip-browser-warning': 'true',
-        },
+        headers: getAuthHeaders(),
       });
+
+      if (handleUnauthorizedResponse(response)) {
+        this.clearAuth();
+        return { success: false, errors: { success: false, message: 'Oturum süresi doldu' } };
+      }
 
       const data = await response.json();
 
@@ -255,15 +303,16 @@ class AuthService {
 
   async updateProfile(profileData: ProfileUpdateData): Promise<{ success: boolean; data?: User; errors?: ValidationError | ApiError }> {
     try {
-      const response = await fetch(`${API_BASE_URL}/profile`, {
+      const response = await fetch(`${API_CONFIG.BASE_URL}/profile`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.token}`,
-          'ngrok-skip-browser-warning': 'true',
-        },
+        headers: getAuthHeaders(),
         body: JSON.stringify(profileData),
       });
+
+      if (handleUnauthorizedResponse(response)) {
+        this.clearAuth();
+        return { success: false, errors: { success: false, message: 'Oturum süresi doldu' } };
+      }
 
       const data = await response.json();
 
@@ -288,13 +337,15 @@ class AuthService {
 
   async getSubscription(): Promise<{ success: boolean; data?: SubscriptionData; errors?: ApiError }> {
     try {
-      const response = await fetch(`${API_BASE_URL}/subscription/show`, {
+      const response = await fetch(`${API_CONFIG.BASE_URL}/subscription/show`, {
         method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${this.token}`,
-          'ngrok-skip-browser-warning': 'true',
-        },
+        headers: getAuthHeaders(),
       });
+
+      if (handleUnauthorizedResponse(response)) {
+        this.clearAuth();
+        return { success: false, errors: { success: false, message: 'Oturum süresi doldu' } };
+      }
 
       const data = await response.json();
 
@@ -314,13 +365,15 @@ class AuthService {
 
   async getSubscriptionPlans(): Promise<{ success: boolean; data?: any[]; errors?: ApiError }> {
     try {
-      const response = await fetch(`${API_BASE_URL}/subscription/plans`, {
+      const response = await fetch(`${API_CONFIG.BASE_URL}/subscription/plans`, {
         method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${this.token}`,
-          'ngrok-skip-browser-warning': 'true',
-        },
+        headers: getAuthHeaders(),
       });
+
+      if (handleUnauthorizedResponse(response)) {
+        this.clearAuth();
+        return { success: false, errors: { success: false, message: 'Oturum süresi doldu' } };
+      }
 
       const data = await response.json();
 
@@ -340,13 +393,15 @@ class AuthService {
 
   async getPaymentHistory(page: number = 1, limit: number = 10): Promise<{ success: boolean; data?: any; errors?: ApiError }> {
     try {
-      const response = await fetch(`${API_BASE_URL}/subscription/payment-history?page=${page}&limit=${limit}`, {
+      const response = await fetch(`${API_CONFIG.BASE_URL}/subscription/payment-history?page=${page}&limit=${limit}`, {
         method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${this.token}`,
-          'ngrok-skip-browser-warning': 'true',
-        },
+        headers: getAuthHeaders(),
       });
+
+      if (handleUnauthorizedResponse(response)) {
+        this.clearAuth();
+        return { success: false, errors: { success: false, message: 'Oturum süresi doldu' } };
+      }
 
       const data = await response.json();
 
@@ -366,15 +421,16 @@ class AuthService {
 
   async changePlan(planId: number): Promise<{ success: boolean; errors?: ApiError }> {
     try {
-      const response = await fetch(`${API_BASE_URL}/subscription/change-plan`, {
+      const response = await fetch(`${API_CONFIG.BASE_URL}/subscription/change-plan`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.token}`,
-          'ngrok-skip-browser-warning': 'true',
-        },
+        headers: getAuthHeaders(),
         body: JSON.stringify({ plan_id: planId }),
       });
+
+      if (handleUnauthorizedResponse(response)) {
+        this.clearAuth();
+        return { success: false, errors: { success: false, message: 'Oturum süresi doldu' } };
+      }
 
       const data = await response.json();
 
@@ -394,13 +450,15 @@ class AuthService {
 
   async renewSubscription(): Promise<{ success: boolean; errors?: ApiError }> {
     try {
-      const response = await fetch(`${API_BASE_URL}/subscription/renew`, {
+      const response = await fetch(`${API_CONFIG.BASE_URL}/subscription/renew`, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${this.token}`,
-          'ngrok-skip-browser-warning': 'true',
-        },
+        headers: getAuthHeaders(),
       });
+
+      if (handleUnauthorizedResponse(response)) {
+        this.clearAuth();
+        return { success: false, errors: { success: false, message: 'Oturum süresi doldu' } };
+      }
 
       const data = await response.json();
 
@@ -432,6 +490,7 @@ class AuthService {
   clearAuth(): void {
     this.token = null;
     this.user = null;
+    this.stopSessionCheck();
     localStorage.removeItem('auth_token');
     localStorage.removeItem('auth_user');
   }
