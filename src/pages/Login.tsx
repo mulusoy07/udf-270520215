@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
@@ -110,7 +109,7 @@ const LoginPage = () => {
                           {isLoading ? "Giriş Yapılıyor..." : "Giriş Yap"}
                         </Button>
                         
-                        <div className="relative my-2">
+                        <div className="relative my-4">
                           <div className="absolute inset-0 flex items-center">
                             <span className="w-full border-t border-gray-300 dark:border-gray-600"></span>
                           </div>
@@ -119,7 +118,7 @@ const LoginPage = () => {
                           </div>
                         </div>
                         
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="space-y-3">
                           <Button 
                             type="button" 
                             variant="outline" 
@@ -145,9 +144,22 @@ const LoginPage = () => {
                                 fill="#EA4335"
                               />
                             </svg>
-                            <span className="hidden sm:inline">Google</span>
-                            <span className="sm:hidden">Google ile Giriş</span>
+                            Google
                           </Button>
+                          
+                          <Button 
+                            type="button" 
+                            variant="outline" 
+                            onClick={() => handleSocialLogin('Microsoft')}
+                            className="w-full bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-600"
+                            disabled={isLoading}
+                          >
+                            <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
+                              <path d="M11.4 24H0V12.6h11.4V24zM24 24H12.6V12.6H24V24zM11.4 11.4H0V0h11.4v11.4zM24 11.4H12.6V0H24v11.4z" fill="#00A4EF"/>
+                            </svg>
+                            Microsoft
+                          </Button>
+                          
                           <Button 
                             type="button" 
                             variant="outline" 
@@ -155,11 +167,10 @@ const LoginPage = () => {
                             className="w-full bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-600"
                             disabled={isLoading}
                           >
-                            <svg className="w-5 h-5 mr-2 text-blue-600" fill="currentColor" viewBox="0 0 24 24">
-                              <path d="M9.19795 21.5H13.198V13.4901H16.8021L17.198 9.50977H13.198V7.5C13.198 6.94772 13.6457 6.5 14.198 6.5H17.198V2.5H14.198C11.4365 2.5 9.19795 4.73858 9.19795 7.5V9.50977H7.19795L6.80206 13.4901H9.19795V21.5Z"></path>
+                            <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
+                              <path d="M9.19795 21.5H13.198V13.4901H16.8021L17.198 9.50977H13.198V7.5C13.198 6.94772 13.6457 6.5 14.198 6.5H17.198V2.5H14.198C11.4365 2.5 9.19795 4.73858 9.19795 7.5V9.50977H7.19795L6.80206 13.4901H9.19795V21.5Z" fill="#1877F2"/>
                             </svg>
-                            <span className="hidden sm:inline">Facebook</span>
-                            <span className="sm:hidden">Facebook ile Giriş</span>
+                            Facebook
                           </Button>
                         </div>
                       </div>
@@ -231,7 +242,7 @@ const LoginPage = () => {
                           {isLoading ? "Kaydınız Oluşturuluyor..." : "Kayıt Ol"}
                         </Button>
                         
-                        <div className="relative my-2">
+                        <div className="relative my-4">
                           <div className="absolute inset-0 flex items-center">
                             <span className="w-full border-t border-gray-300 dark:border-gray-600"></span>
                           </div>
@@ -240,7 +251,7 @@ const LoginPage = () => {
                           </div>
                         </div>
                         
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="space-y-3">
                           <Button 
                             type="button" 
                             variant="outline" 
@@ -266,9 +277,22 @@ const LoginPage = () => {
                                 fill="#EA4335"
                               />
                             </svg>
-                            <span className="hidden sm:inline">Google</span>
-                            <span className="sm:hidden">Google ile Giriş</span>
+                            Google
                           </Button>
+                          
+                          <Button 
+                            type="button" 
+                            variant="outline" 
+                            onClick={() => handleSocialLogin('Microsoft')}
+                            className="w-full bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-600"
+                            disabled={isLoading}
+                          >
+                            <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
+                              <path d="M11.4 24H0V12.6h11.4V24zM24 24H12.6V12.6H24V24zM11.4 11.4H0V0h11.4v11.4zM24 11.4H12.6V0H24v11.4z" fill="#00A4EF"/>
+                            </svg>
+                            Microsoft
+                          </Button>
+                          
                           <Button 
                             type="button" 
                             variant="outline" 
@@ -276,11 +300,10 @@ const LoginPage = () => {
                             className="w-full bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-600"
                             disabled={isLoading}
                           >
-                            <svg className="w-5 h-5 mr-2 text-blue-600" fill="currentColor" viewBox="0 0 24 24">
-                              <path d="M9.19795 21.5H13.198V13.4901H16.8021L17.198 9.50977H13.198V7.5C13.198 6.94772 13.6457 6.5 14.198 6.5H17.198V2.5H14.198C11.4365 2.5 9.19795 4.73858 9.19795 7.5V9.50977H7.19795L6.80206 13.4901H9.19795V21.5Z"></path>
+                            <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
+                              <path d="M9.19795 21.5H13.198V13.4901H16.8021L17.198 9.50977H13.198V7.5C13.198 6.94772 13.6457 6.5 14.198 6.5H17.198V2.5H14.198C11.4365 2.5 9.19795 4.73858 9.19795 7.5V9.50977H7.19795L6.80206 13.4901H9.19795V21.5Z" fill="#1877F2"/>
                             </svg>
-                            <span className="hidden sm:inline">Facebook</span>
-                            <span className="sm:hidden">Facebook ile Giriş</span>
+                            Facebook
                           </Button>
                         </div>
                       </div>
