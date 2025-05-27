@@ -429,6 +429,18 @@ const EditorContent: React.FC = () => {
             background-color: #f5f5f5 !important;
             font-weight: bold !important;
           }
+
+          /* Placeholder stilleri */
+          [contenteditable="true"]:empty::before {
+            content: "Birşeyler yazmaya başla...";
+            color: #9ca3af;
+            pointer-events: none;
+            position: absolute;
+          }
+          
+          .dark [contenteditable="true"]:empty::before {
+            color: #6b7280;
+          }
         `}</style>
         
         <FileToolbar

@@ -166,7 +166,6 @@ const EditorDocument: React.FC<EditorDocumentProps> = ({
           suppressContentEditableWarning
           onKeyDown={handleKeyDown}
           spellCheck={false}
-          data-placeholder="Belgenizi yazmaya başlayın..."
         />
       </div>
     </div>
