@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { fileService, folderService, TreeNode, addCacheListener, removeCacheListener } from '@/services/fileService';
@@ -423,6 +422,8 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
           name: draggedItem.name
         });
         if (result.success) {
+          // Cache'i temizle ve yeniden yükle
+          await loadFileTree(false);
           toast({
             title: "Başarılı",
             description: `${draggedItem.name} dosyası ${targetFolder.name} klasörüne taşındı`,
@@ -440,6 +441,8 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
           name: draggedItem.name
         });
         if (result.success) {
+          // Cache'i temizle ve yeniden yükle
+          await loadFileTree(false);
           toast({
             title: "Başarılı",
             description: `${draggedItem.name} klasörü ${targetFolder.name} klasörüne taşındı`,
