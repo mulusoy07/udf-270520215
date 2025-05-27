@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -26,12 +27,13 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
   const [fileTree, setFileTree] = useState<TreeNode[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-  const [sortBy, setSortBy] = useState<'name' | 'date' | 'size'>('name');
+  const [sortBy, setSortBy] = useState<'name' | 'date' | 'size'>('date');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [isActionsOpen, setIsActionsOpen] = useState(false);
   const [isColorPaletteOpen, setIsColorPaletteOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<TreeNode | null>(null);
+  const [draggedItem, setDraggedItem] = useState<TreeNode | null>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
@@ -123,8 +125,19 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
       );
     }
     
-    // Sort items
-    items.sort((a, b) => {
+    // Separate folders and files
+    const folders = items.filter(item => item.type === 'folder');
+    const files = items.filter(item => item.type === 'file');
+    
+    // Sort folders
+    folders.sort((a, b) => {
+      const dateA = new Date(a.created_at || '2025-05-13 15:09:49').getTime();
+      const dateB = new Date(b.created_at || '2025-05-13 15:09:49').getTime();
+      return dateA - dateB; // Eskiden yeniye (asc)
+    });
+    
+    // Sort files
+    files.sort((a, b) => {
       let comparison = 0;
       
       switch (sortBy) {
@@ -143,7 +156,8 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
       return sortOrder === 'asc' ? comparison : -comparison;
     });
     
-    return items;
+    // Return folders first, then files
+    return [...folders, ...files];
   };
 
   const handleCreateFolder = async () => {
@@ -375,6 +389,71 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
     loadFileTree(false);
   };
 
+  // Drag and Drop handlers
+  const handleDragStart = (e: React.DragEvent, item: TreeNode) => {
+    setDraggedItem(item);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleDrop = async (e: React.DragEvent, targetFolder: TreeNode) => {
+    e.preventDefault();
+    
+    if (!draggedItem || draggedItem.id === targetFolder.id || targetFolder.type !== 'folder') {
+      setDraggedItem(null);
+      return;
+    }
+
+    try {
+      if (draggedItem.type === 'file') {
+        const result = await fileService.updateFile(draggedItem.id, { 
+          folder_id: targetFolder.id 
+        });
+        if (result.success) {
+          toast({
+            title: "Başarılı",
+            description: `${draggedItem.name} dosyası ${targetFolder.name} klasörüne taşındı`,
+          });
+        } else {
+          toast({
+            title: "Hata",
+            description: result.message || "Dosya taşınamadı",
+            variant: "destructive"
+          });
+        }
+      } else {
+        const result = await folderService.updateFolder(draggedItem.id, { 
+          parent_id: targetFolder.id 
+        });
+        if (result.success) {
+          toast({
+            title: "Başarılı",
+            description: `${draggedItem.name} klasörü ${targetFolder.name} klasörüne taşındı`,
+          });
+        } else {
+          toast({
+            title: "Hata",
+            description: result.message || "Klasör taşınamadı",
+            variant: "destructive"
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error moving item:', error);
+      toast({
+        title: "Hata",
+        description: "Taşıma işlemi sırasında hata oluştu",
+        variant: "destructive"
+      });
+    }
+    
+    setDraggedItem(null);
+  };
+
   const FileManagerSkeleton = () => {
     return (
       <div className={`grid gap-3 ${viewMode === 'grid' ? (isMobile ? 'grid-cols-2' : 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6') : 'grid-cols-1'}`}>
@@ -415,7 +494,7 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
                     <DropdownMenuTrigger asChild>
                       <Button className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-md text-sm font-medium">
                         <Upload size={16} className="mr-2" />
-                        Upload
+                        Yükle
                         <ChevronDown size={14} className="ml-2" />
                       </Button>
                     </DropdownMenuTrigger>
@@ -443,6 +522,15 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
                   <Button 
                     size="sm" 
                     variant="outline" 
+                    onClick={handleCreateFile}
+                    className="p-2.5 border border-gray-300 dark:border-gray-600"
+                  >
+                    <FilePlus size={16} />
+                  </Button>
+                  
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
                     onClick={handleRefresh}
                     className="p-2.5 border border-gray-300 dark:border-gray-600"
                   >
@@ -455,7 +543,7 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
                   <Search size={16} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500" />
                   <Input
                     type="text"
-                    placeholder="Search in current folder"
+                    placeholder="Mevcut klasörde ara"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="pl-10 bg-white dark:bg-gray-900 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100"
@@ -466,7 +554,7 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Button variant="ghost" size="sm" className="text-blue-600 dark:text-blue-400 text-sm">
-                      All media
+                      Tüm Dosyalar
                     </Button>
                   </div>
                   
@@ -475,7 +563,7 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
                       <DropdownMenuTrigger asChild>
                         <Button size="sm" variant="outline" className="text-sm">
                           <ArrowUpDown size={14} className="mr-1" />
-                          Sort
+                          Sırala
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
@@ -738,6 +826,10 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
                               } bg-white dark:bg-gray-900`}
                               onClick={() => handleItemClick(item)}
                               onDoubleClick={() => handleItemDoubleClick(item)}
+                              draggable={true}
+                              onDragStart={(e) => handleDragStart(e, item)}
+                              onDragOver={item.type === 'folder' ? handleDragOver : undefined}
+                              onDrop={item.type === 'folder' ? (e) => handleDrop(e, item) : undefined}
                             >
                               {isSelected && (
                                 <div className="w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center flex-shrink-0">
@@ -803,6 +895,10 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
                             } bg-white dark:bg-gray-900`}
                             onClick={() => handleItemClick(item)}
                             onDoubleClick={() => handleItemDoubleClick(item)}
+                            draggable={true}
+                            onDragStart={(e) => handleDragStart(e, item)}
+                            onDragOver={item.type === 'folder' ? handleDragOver : undefined}
+                            onDrop={item.type === 'folder' ? (e) => handleDrop(e, item) : undefined}
                           >
                             {isSelected && (
                               <div className="absolute top-2 right-2 w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center">
