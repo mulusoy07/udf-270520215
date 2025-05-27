@@ -150,27 +150,33 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
     return [...folders, ...files];
   };
 
-  const generateUniqueFileName = () => {
+  const generateUniqueId = () => {
     const now = new Date();
-    const timestamp = now.getFullYear().toString() + 
-                     (now.getMonth() + 1).toString().padStart(2, '0') + 
-                     now.getDate().toString().padStart(2, '0') + '_' +
-                     now.getHours().toString().padStart(2, '0') + 
-                     now.getMinutes().toString().padStart(2, '0') + 
-                     now.getSeconds().toString().padStart(2, '0');
-    return `Yeni_Belge_${timestamp}.udf`;
+    const timestamp = now.getTime().toString();
+    return timestamp.slice(-6); // Son 6 karakter
+  };
+
+  const generateUniqueFolderName = () => {
+    const uniqueId = generateUniqueId();
+    return `Yeni Klasör ${uniqueId}`;
+  };
+
+  const generateUniqueFileName = () => {
+    const uniqueId = generateUniqueId();
+    return `Yeni Belge ${uniqueId}.udf`;
   };
 
   const handleCreateFolder = async () => {
+    const uniqueFolderName = generateUniqueFolderName();
     const result = await folderService.createFolder({
-      name: 'Yeni Klasör',
+      name: uniqueFolderName,
       parent_id: currentFolderId || undefined
     });
 
     if (result.success && result.data) {
       setIsRenaming(result.data.id);
-      setNewName('Yeni Klasör');
-      setOriginalName('Yeni Klasör');
+      setNewName(uniqueFolderName);
+      setOriginalName(uniqueFolderName);
       toast({
         title: "Başarılı",
         description: "Klasör oluşturuldu",
