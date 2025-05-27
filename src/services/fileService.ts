@@ -1,4 +1,3 @@
-
 import { API_CONFIG, getAuthHeaders, handleUnauthorizedResponse } from '@/config/api';
 
 export interface TreeNode {
@@ -94,6 +93,37 @@ const addItemToCache = (item: TreeNode, parentId?: number) => {
     fileTreeCache.push(item);
     updateCache([...fileTreeCache]);
   }
+};
+
+// Cache'de item taşıma (sürükle-bırak için)
+const moveItemInCache = (itemId: number, targetFolderId: number) => {
+  if (!fileTreeCache) return false;
+  
+  // Taşınacak item'ı bul ve eski yerinden çıkar
+  const itemFound = findItemInTree(fileTreeCache, itemId);
+  if (!itemFound) return false;
+  
+  const itemToMove = { ...itemFound.item };
+  
+  // Eski yerinden çıkar
+  if (itemFound.parent) {
+    itemFound.parent.children = itemFound.parent.children?.filter(child => child.id !== itemId);
+  } else {
+    fileTreeCache = fileTreeCache.filter(item => item.id !== itemId);
+  }
+  
+  // Yeni yerine ekle
+  const targetFound = findItemInTree(fileTreeCache, targetFolderId);
+  if (targetFound && targetFound.item.type === 'folder') {
+    if (!targetFound.item.children) {
+      targetFound.item.children = [];
+    }
+    targetFound.item.children.push(itemToMove);
+    updateCache([...fileTreeCache]);
+    return true;
+  }
+  
+  return false;
 };
 
 export const fileService = {
@@ -279,6 +309,11 @@ export const fileService = {
   clearCache: () => {
     fileTreeCache = null;
     updateCache([]);
+  },
+
+  // Sürükle-bırak için cache'de item taşıma
+  moveItemInCache: (itemId: number, targetFolderId: number) => {
+    return moveItemInCache(itemId, targetFolderId);
   }
 };
 

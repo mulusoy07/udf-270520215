@@ -416,22 +416,39 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
     }
 
     try {
+      // Önce cache'i güncelle (optimistic update)
+      const cacheUpdateSuccess = fileService.moveItemInCache(draggedItem.id, targetFolder.id);
+      
+      if (!cacheUpdateSuccess) {
+        toast({
+          title: "Hata",
+          description: "Cache güncellemesi başarısız oldu",
+          variant: "destructive"
+        });
+        setDraggedItem(null);
+        return;
+      }
+
+      // Başarılı cache güncellemesi sonrası toast göster
+      toast({
+        title: "Başarılı",
+        description: `${draggedItem.name} ${targetFolder.name} klasörüne taşındı`,
+      });
+
+      // Arka planda API çağrısı yap (cache güncellenmesi zaten yapıldı)
       if (draggedItem.type === 'file') {
         const result = await fileService.updateFile(draggedItem.id, { 
           folder_id: targetFolder.id,
           name: draggedItem.name
         });
-        if (result.success) {
-          // Cache'i temizle ve yeniden yükle
+        
+        // API başarısız olursa cache'i geri yükle
+        if (!result.success) {
+          console.error('API call failed, reloading cache:', result.message);
           await loadFileTree(false);
           toast({
-            title: "Başarılı",
-            description: `${draggedItem.name} dosyası ${targetFolder.name} klasörüne taşındı`,
-          });
-        } else {
-          toast({
-            title: "Hata",
-            description: result.message || "Dosya taşınamadı",
+            title: "Uyarı",
+            description: "Taşıma işlemi tamamlanamadı, dosya yapısı yenilendi",
             variant: "destructive"
           });
         }
@@ -440,26 +457,25 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
           parent_id: targetFolder.id,
           name: draggedItem.name
         });
-        if (result.success) {
-          // Cache'i temizle ve yeniden yükle
+        
+        // API başarısız olursa cache'i geri yükle
+        if (!result.success) {
+          console.error('API call failed, reloading cache:', result.message);
           await loadFileTree(false);
           toast({
-            title: "Başarılı",
-            description: `${draggedItem.name} klasörü ${targetFolder.name} klasörüne taşındı`,
-          });
-        } else {
-          toast({
-            title: "Hata",
-            description: result.message || "Klasör taşınamadı",
+            title: "Uyarı",
+            description: "Taşıma işlemi tamamlanamadı, dosya yapısı yenilendi",
             variant: "destructive"
           });
         }
       }
     } catch (error) {
       console.error('Error moving item:', error);
+      // Hata durumunda cache'i yeniden yükle
+      await loadFileTree(false);
       toast({
         title: "Hata",
-        description: "Taşıma işlemi sırasında hata oluştu",
+        description: "Taşıma işlemi sırasında hata oluştu, dosya yapısı yenilendi",
         variant: "destructive"
       });
     }
