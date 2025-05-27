@@ -9,6 +9,8 @@ export interface TreeNode {
   url?: string;
   color?: string;
   children?: TreeNode[];
+  created_at?: string;
+  updated_at?: string;
 }
 
 // Cache sistemi için global state
