@@ -190,7 +190,8 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
       name: uniqueFileName,
       folder_id: currentFolderId || undefined,
       type: 'udf',
-      content: ''
+      mime_type: 'text/plain', // Default mime type
+      size: 0 // Default size
     });
 
     if (result.success && result.data) {

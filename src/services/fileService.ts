@@ -1,3 +1,4 @@
+
 import { API_CONFIG, getAuthHeaders, handleUnauthorizedResponse } from '@/config/api';
 
 export interface TreeNode {
@@ -175,15 +176,25 @@ export const fileService = {
   createFile: async (data: {
     name: string;
     folder_id?: number;
-    content?: string;
-    type?: string;
+    type: string;
     color?: string;
+    mime_type?: string;
+    size?: number;
   }): Promise<{ success: boolean; data?: any; message?: string }> => {
     try {
+      const requestData = {
+        name: data.name,
+        folder_id: data.folder_id,
+        type: 'file', // API için type her zaman 'file' olacak
+        mime_type: data.mime_type || 'text/plain', // Default mime type
+        size: data.size || 0, // Default size
+        color: data.color
+      };
+
       const response = await fetch(`${API_CONFIG.BASE_URL}/files`, {
         method: 'POST',
         headers: getAuthHeaders(),
-        body: JSON.stringify(data),
+        body: JSON.stringify(requestData),
       });
 
       if (handleUnauthorizedResponse(response)) {
@@ -206,6 +217,7 @@ export const fileService = {
           name: result.data.name,
           type: 'file',
           color: result.data.color,
+          size: result.data.size,
           created_at: result.data.created_at,
           updated_at: result.data.updated_at,
           upload_at: result.data.upload_at
@@ -227,14 +239,23 @@ export const fileService = {
   updateFile: async (id: number, data: {
     name?: string;
     folder_id?: number;
-    content?: string;
     color?: string;
+    mime_type?: string;
+    size?: number;
   }): Promise<{ success: boolean; data?: any; message?: string }> => {
     try {
+      const requestData = {
+        name: data.name,
+        folder_id: data.folder_id,
+        color: data.color,
+        mime_type: data.mime_type,
+        size: data.size
+      };
+
       const response = await fetch(`${API_CONFIG.BASE_URL}/files/${id}`, {
         method: 'PUT',
         headers: getAuthHeaders(),
-        body: JSON.stringify(data),
+        body: JSON.stringify(requestData),
       });
 
       if (handleUnauthorizedResponse(response)) {
@@ -326,10 +347,17 @@ export const folderService = {
     color?: string;
   }): Promise<{ success: boolean; data?: any; message?: string }> => {
     try {
+      const requestData = {
+        name: data.name,
+        parent_id: data.parent_id,
+        type: 'folder', // API için type her zaman 'folder' olacak
+        color: data.color
+      };
+
       const response = await fetch(`${API_CONFIG.BASE_URL}/folders`, {
         method: 'POST',
         headers: getAuthHeaders(),
-        body: JSON.stringify(data),
+        body: JSON.stringify(requestData),
       });
 
       if (handleUnauthorizedResponse(response)) {
@@ -376,10 +404,16 @@ export const folderService = {
     color?: string;
   }): Promise<{ success: boolean; data?: any; message?: string }> => {
     try {
+      const requestData = {
+        name: data.name,
+        parent_id: data.parent_id,
+        color: data.color
+      };
+
       const response = await fetch(`${API_CONFIG.BASE_URL}/folders/${id}`, {
         method: 'PUT',
         headers: getAuthHeaders(),
-        body: JSON.stringify(data),
+        body: JSON.stringify(requestData),
       });
 
       if (handleUnauthorizedResponse(response)) {
