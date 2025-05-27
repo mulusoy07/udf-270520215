@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -32,7 +33,7 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
   const { toast } = useToast();
 
   const ITEMS_PER_PAGE_DESKTOP = 12;
-  const ITEMS_PER_PAGE_MOBILE = 8; // Mobile için 4x2 grid
+  const ITEMS_PER_PAGE_MOBILE = 4; // Mobile için 4 tane alt alta
   const [isMobile, setIsMobile] = useState(false);
 
   // Detect mobile screen size
@@ -67,8 +68,7 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
   const loadFileTree = async () => {
     setIsLoading(true);
     try {
-      // İlk açılışta cache kullanma, sonrasında cache'den al
-      const result = await fileService.getFileTree(fileTree.length > 0);
+      const result = await fileService.getFileTree(true);
       if (result.success && result.data) {
         setFileTree(result.data);
       } else {
@@ -95,7 +95,6 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
       return fileTree;
     }
     
-    // Find current folder in the tree
     const findFolder = (nodes: TreeNode[]): TreeNode | null => {
       for (const node of nodes) {
         if (node.id === currentFolderId && node.type === 'folder') {
@@ -113,7 +112,6 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
     return currentFolder?.children || [];
   };
 
-  // Filter items based on search query
   const getFilteredItems = (): TreeNode[] => {
     const items = getCurrentItems();
     if (!searchQuery.trim()) {
@@ -125,7 +123,6 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
     );
   };
 
-  // Pagination logic
   const itemsPerPage = isMobile ? ITEMS_PER_PAGE_MOBILE : ITEMS_PER_PAGE_DESKTOP;
   const allItems = getFilteredItems();
   const totalPages = Math.ceil(allItems.length / itemsPerPage);
@@ -133,7 +130,6 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
   const endIndex = startIndex + itemsPerPage;
   const currentItems = allItems.slice(startIndex, endIndex);
 
-  // Reset to first page when changing folders or search
   useEffect(() => {
     setCurrentPage(1);
   }, [currentFolderId, searchQuery]);
@@ -365,13 +361,12 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
     if (index === 0) {
       setCurrentFolderId(null);
     } else {
-      // Find folder by path - simplified for now
       setCurrentFolderId(null);
     }
   };
 
   const handleItemClick = (item: TreeNode) => {
-    if (isRenaming === item.id) return; // Prevent navigation when renaming
+    if (isRenaming === item.id) return;
     
     if (item.type === 'folder') {
       handleFolderNavigate(item.id, item.name);
@@ -379,35 +374,31 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
   };
 
   const handleRenameClick = (e: React.MouseEvent, itemId: number, itemName: string) => {
-    e.stopPropagation(); // Prevent folder navigation
+    e.stopPropagation();
     setIsRenaming(itemId);
     setNewName(itemName);
   };
 
   const handleDropdownClick = (e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent folder navigation when opening dropdown
+    e.stopPropagation();
   };
 
   const handleColorChangeClick = (e: React.MouseEvent, item: TreeNode, color: string) => {
-    e.stopPropagation(); // Prevent folder navigation
+    e.stopPropagation();
     handleColorChange(item.id, item.type, color, item.name);
   };
 
   const handleDeleteClick = (e: React.MouseEvent, item: TreeNode) => {
-    e.stopPropagation(); // Prevent folder navigation
+    e.stopPropagation();
     handleDelete(item.id, item.type);
   };
 
-  // Mobile için container height hesaplama
-  const mobileContainerHeight = isMobile ? '320px' : 'auto'; // 4 item * 80px = 320px
-  
-  // Skeleton Loading Component with calculated min-height
   const FileManagerSkeleton = () => {
     const skeletonHeight = isMobile ? '400px' : '500px';
     
     return (
       <div 
-        className={`grid gap-3 ${isMobile ? 'grid-cols-2' : 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6'}`}
+        className={`grid gap-3 ${isMobile ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6'}`}
         style={{ minHeight: skeletonHeight }}
       >
         {Array.from({ length: itemsPerPage }).map((_, index) => (
@@ -425,7 +416,7 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
       <DialogContent 
         className="sm:max-w-6xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700"
         style={{ 
-          minHeight: isMobile ? '600px' : '700px',
+          minHeight: '600px',
           maxHeight: '90vh'
         }}
       >
@@ -433,22 +424,31 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
           <DialogTitle className="text-xl text-gray-900 dark:text-gray-100">Dosya Yöneticisi</DialogTitle>
         </DialogHeader>
         
-        <div className="flex flex-col h-full">
+        <div className="flex flex-col h-full" style={{ minHeight: '500px' }}>
           {/* Toolbar */}
           <div className="flex flex-col gap-3 p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
             {/* Buttons Row - Mobile için yan yana */}
-            <div className={`flex gap-2 ${isMobile ? 'flex-row' : 'flex-wrap'}`}>
-              <Button size="sm" onClick={handleCreateFolder} className="flex items-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground flex-1">
+            <div className="flex gap-2">
+              <Button 
+                size="sm" 
+                onClick={handleCreateFolder} 
+                className="flex items-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground flex-1"
+              >
                 <FolderPlus size={16} />
                 Klasör Oluştur
               </Button>
-              <Button size="sm" variant="outline" onClick={handleCreateFile} className="flex items-center gap-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 flex-1">
+              <Button 
+                size="sm" 
+                variant="outline" 
+                onClick={handleCreateFile} 
+                className="flex items-center gap-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 flex-1"
+              >
                 <FilePlus size={16} />
                 Dosya Oluştur
               </Button>
             </div>
             
-            {/* Search Row - Mobile için butonların altında */}
+            {/* Search Row - Butonların altında */}
             <div className="relative">
               <Search size={16} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500" />
               <Input
@@ -483,14 +483,13 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
             ) : (
               <>
                 <div 
-                  className={`${isMobile ? 'overflow-y-auto' : ''}`}
+                  className={isMobile ? 'overflow-y-auto h-80' : ''}
                   style={{ 
-                    height: isMobile ? mobileContainerHeight : 'auto',
-                    minHeight: isMobile ? '400px' : '500px'
+                    minHeight: isMobile ? '320px' : '500px'
                   }}
                 >
                   <div 
-                    className={`grid gap-3 ${isMobile ? 'grid-cols-2' : 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6'}`}
+                    className={`grid gap-3 ${isMobile ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6'}`}
                   >
                     {currentItems.map((item) => {
                       const hasChildren = item.children && item.children.length > 0;
@@ -645,25 +644,26 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
                                         className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600"
                                       >
                                         İptal
-                                    </AlertDialogCancel>
-                                    <AlertDialogAction
-                                      onClick={(e) => handleDeleteClick(e, item)}
-                                      className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
-                                    >
-                                      Sil
-                                    </AlertDialogAction>
-                                  </AlertDialogFooter>
-                                </AlertDialogContent>
-                              </AlertDialog>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
+                                      </AlertDialogCancel>
+                                      <AlertDialogAction
+                                        onClick={(e) => handleDeleteClick(e, item)}
+                                        className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+                                      >
+                                        Sil
+                                      </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
                         </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
+                  </div>
                 </div>
 
-                {/* Pagination - sadece mobile değilse göster */}
+                {/* Pagination - sadece desktop'ta göster */}
                 {totalPages > 1 && !isMobile && (
                   <div className="mt-6 flex justify-center">
                     <Pagination>
