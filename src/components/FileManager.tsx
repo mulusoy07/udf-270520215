@@ -17,7 +17,7 @@ interface FileManagerProps {
 }
 
 const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
-  const [currentPath, setCurrentPath] = useState<string[]>(['Kök Dizin']);
+  const [currentPath, setCurrentPath] = useState<string[]>(['Dosyalarım']);
   const [currentFolderId, setCurrentFolderId] = useState<number | null>(null);
   const [isRenaming, setIsRenaming] = useState<number | null>(null);
   const [newName, setNewName] = useState('');
@@ -27,7 +27,7 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
   const [fileTree, setFileTree] = useState<TreeNode[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-  const [sortBy, setSortBy] = useState<'name' | 'date' | 'size'>('date');
+  const [sortBy, setSortBy] = useState<'name' | 'created_at' | 'upload_at'>('created_at');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [isActionsOpen, setIsActionsOpen] = useState(false);
   const [isColorPaletteOpen, setIsColorPaletteOpen] = useState(false);
@@ -129,14 +129,14 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
     const folders = items.filter(item => item.type === 'folder');
     const files = items.filter(item => item.type === 'file');
     
-    // Sort folders
+    // Sort folders by created_at (oldest to newest by default)
     folders.sort((a, b) => {
       const dateA = new Date(a.created_at || '2025-05-13 15:09:49').getTime();
       const dateB = new Date(b.created_at || '2025-05-13 15:09:49').getTime();
-      return dateA - dateB; // Eskiden yeniye (asc)
+      return dateA - dateB;
     });
     
-    // Sort files
+    // Sort files based on selected criteria
     files.sort((a, b) => {
       let comparison = 0;
       
@@ -144,12 +144,13 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
         case 'name':
           comparison = a.name.localeCompare(b.name);
           break;
-        case 'date':
-          comparison = new Date(a.updated_at || a.created_at || '2025-05-13 15:09:49').getTime() - 
-                      new Date(b.updated_at || b.created_at || '2025-05-13 15:09:49').getTime();
+        case 'created_at':
+          comparison = new Date(a.created_at || '2025-05-13 15:09:49').getTime() - 
+                      new Date(b.created_at || '2025-05-13 15:09:49').getTime();
           break;
-        case 'size':
-          comparison = (a.size || 0) - (b.size || 0);
+        case 'upload_at':
+          comparison = new Date(a.upload_at || a.updated_at || a.created_at || '2025-05-13 15:09:49').getTime() - 
+                      new Date(b.upload_at || b.updated_at || b.created_at || '2025-05-13 15:09:49').getTime();
           break;
       }
       
@@ -411,7 +412,8 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
     try {
       if (draggedItem.type === 'file') {
         const result = await fileService.updateFile(draggedItem.id, { 
-          folder_id: targetFolder.id 
+          folder_id: targetFolder.id,
+          name: draggedItem.name
         });
         if (result.success) {
           toast({
@@ -427,7 +429,8 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
         }
       } else {
         const result = await folderService.updateFolder(draggedItem.id, { 
-          parent_id: targetFolder.id 
+          parent_id: targetFolder.id,
+          name: draggedItem.name
         });
         if (result.success) {
           toast({
@@ -550,14 +553,8 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
                   />
                 </div>
                 
-                {/* Bottom Row - Filters and View */}
+                {/* Bottom Row - Actions and View */}
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Button variant="ghost" size="sm" className="text-blue-600 dark:text-blue-400 text-sm">
-                      Tüm Dosyalar
-                    </Button>
-                  </div>
-                  
                   <div className="flex items-center gap-2">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
@@ -566,12 +563,30 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
                           Sırala
                         </Button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+                      <DropdownMenuContent align="start" className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
                         <DropdownMenuItem onClick={() => { setSortBy('name'); setSortOrder('asc'); }} className="text-gray-700 dark:text-gray-200">
-                          Dosya Adı - A'dan Z'ye
+                          <FileText size={14} className="mr-2" />
+                          Dosya - A'dan Z'ye
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => { setSortBy('date'); setSortOrder('desc'); }} className="text-gray-700 dark:text-gray-200">
-                          Tarih - Yeniden Eskiye
+                        <DropdownMenuItem onClick={() => { setSortBy('name'); setSortOrder('desc'); }} className="text-gray-700 dark:text-gray-200">
+                          <FileText size={14} className="mr-2" />
+                          Dosya - Z'den A'ya
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => { setSortBy('created_at'); setSortOrder('asc'); }} className="text-gray-700 dark:text-gray-200">
+                          <Calendar size={14} className="mr-2" />
+                          Oluşturulma - Eskiden Yeniye
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => { setSortBy('created_at'); setSortOrder('desc'); }} className="text-gray-700 dark:text-gray-200">
+                          <Calendar size={14} className="mr-2" />
+                          Oluşturulma - Yeniden Eskiye
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => { setSortBy('upload_at'); setSortOrder('asc'); }} className="text-gray-700 dark:text-gray-200">
+                          <Calendar size={14} className="mr-2" />
+                          Değiştirilme - Eskiden Yeniye
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => { setSortBy('upload_at'); setSortOrder('desc'); }} className="text-gray-700 dark:text-gray-200">
+                          <Calendar size={14} className="mr-2" />
+                          Değiştirilme - Yeniden Eskiye
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -611,25 +626,25 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
-                    
-                    <div className="flex border border-gray-300 dark:border-gray-600 rounded overflow-hidden">
-                      <Button
-                        size="sm"
-                        variant={viewMode === 'grid' ? 'default' : 'ghost'}
-                        onClick={() => setViewMode('grid')}
-                        className="px-2 rounded-none border-0"
-                      >
-                        <Grid3X3 size={16} />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant={viewMode === 'list' ? 'default' : 'ghost'}
-                        onClick={() => setViewMode('list')}
-                        className="px-2 rounded-none border-0"
-                      >
-                        <List size={16} />
-                      </Button>
-                    </div>
+                  </div>
+                  
+                  <div className="flex border border-gray-300 dark:border-gray-600 rounded overflow-hidden">
+                    <Button
+                      size="sm"
+                      variant={viewMode === 'grid' ? 'default' : 'ghost'}
+                      onClick={() => setViewMode('grid')}
+                      className="px-2 rounded-none border-0"
+                    >
+                      <Grid3X3 size={16} />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant={viewMode === 'list' ? 'default' : 'ghost'}
+                      onClick={() => setViewMode('list')}
+                      className="px-2 rounded-none border-0"
+                    >
+                      <List size={16} />
+                    </Button>
                   </div>
                 </div>
               </div>
@@ -756,19 +771,27 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
                     <DropdownMenuContent align="end" className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
                       <DropdownMenuItem onClick={() => { setSortBy('name'); setSortOrder('asc'); }} className="text-gray-700 dark:text-gray-200">
                         <FileText size={14} className="mr-2" />
-                        Dosya Adı - A'dan Z'ye
+                        Dosya - A'dan Z'ye
                       </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => { setSortBy('name'); setSortOrder('desc'); }} className="text-gray-700 dark:text-gray-200">
                         <FileText size={14} className="mr-2" />
-                        Dosya Adı - Z'den A'ya
+                        Dosya - Z'den A'ya
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => { setSortBy('date'); setSortOrder('asc'); }} className="text-gray-700 dark:text-gray-200">
+                      <DropdownMenuItem onClick={() => { setSortBy('created_at'); setSortOrder('asc'); }} className="text-gray-700 dark:text-gray-200">
                         <Calendar size={14} className="mr-2" />
-                        Yükleme Tarihi - Eskiden Yeniye
+                        Oluşturulma - Eskiden Yeniye
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => { setSortBy('date'); setSortOrder('desc'); }} className="text-gray-700 dark:text-gray-200">
+                      <DropdownMenuItem onClick={() => { setSortBy('created_at'); setSortOrder('desc'); }} className="text-gray-700 dark:text-gray-200">
                         <Calendar size={14} className="mr-2" />
-                        Yükleme Tarihi - Yeniden Eskiye
+                        Oluşturulma - Yeniden Eskiye
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => { setSortBy('upload_at'); setSortOrder('asc'); }} className="text-gray-700 dark:text-gray-200">
+                        <Calendar size={14} className="mr-2" />
+                        Değiştirilme - Eskiden Yeniye
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => { setSortBy('upload_at'); setSortOrder('desc'); }} className="text-gray-700 dark:text-gray-200">
+                        <Calendar size={14} className="mr-2" />
+                        Değiştirilme - Yeniden Eskiye
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
@@ -879,7 +902,7 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
                               </div>
                               
                               <div className="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0">
-                                {item.updated_at || item.created_at || '2025-05-13 15:09:49'}
+                                {item.upload_at || item.updated_at || item.created_at || '2025-05-13 15:09:49'}
                               </div>
                             </div>
                           );

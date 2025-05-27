@@ -11,6 +11,7 @@ export interface TreeNode {
   children?: TreeNode[];
   created_at?: string;
   updated_at?: string;
+  upload_at?: string;
 }
 
 // Cache sistemi için global state
@@ -174,7 +175,10 @@ export const fileService = {
           id: result.data.id,
           name: result.data.name,
           type: 'file',
-          color: result.data.color
+          color: result.data.color,
+          created_at: result.data.created_at,
+          updated_at: result.data.updated_at,
+          upload_at: result.data.upload_at
         };
         addItemToCache(newFile, data.folder_id);
       }
@@ -218,7 +222,11 @@ export const fileService = {
 
       // Cache'de dosyayı güncelle
       if (result.success) {
-        updateItemInCache(id, data);
+        updateItemInCache(id, {
+          ...data,
+          updated_at: result.data?.updated_at,
+          upload_at: result.data?.upload_at
+        });
       }
 
       return result;
@@ -309,7 +317,9 @@ export const folderService = {
           name: result.data.name,
           type: 'folder',
           color: result.data.color,
-          children: []
+          children: [],
+          created_at: result.data.created_at,
+          updated_at: result.data.updated_at
         };
         addItemToCache(newFolder, data.parent_id);
       }
@@ -352,7 +362,10 @@ export const folderService = {
 
       // Cache'de klasörü güncelle
       if (result.success) {
-        updateItemInCache(id, data);
+        updateItemInCache(id, {
+          ...data,
+          updated_at: result.data?.updated_at
+        });
       }
 
       return result;
