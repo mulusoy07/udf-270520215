@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -198,7 +197,6 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
   };
 
   const handleRename = async (id: number, type: 'file' | 'folder') => {
-    // Validate: check if name actually changed and is not empty
     if (!newName.trim() || newName === originalName) {
       setIsRenaming(null);
       setNewName('');
@@ -376,7 +374,7 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
   };
 
   const handleRefresh = () => {
-    loadFileTree(false); // Yenile butonunda cache kullanma
+    loadFileTree(false);
   };
 
   // Drag and drop handlers
@@ -483,20 +481,20 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent 
-          className="sm:max-w-6xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 p-0"
+          className="sm:max-w-6xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 p-0 flex flex-col"
           style={{ 
-            height: isMobile ? '80vh' : '85vh',
-            maxHeight: '90vh'
+            height: isMobile ? '85vh' : '90vh',
+            maxHeight: isMobile ? '85vh' : '90vh'
           }}
         >
-          <div className="flex flex-col h-full">
+          <div className="flex flex-col h-full overflow-hidden">
             {/* Header */}
-            <DialogHeader className="p-6 pb-0">
+            <DialogHeader className="p-6 pb-0 flex-shrink-0">
               <DialogTitle className="text-xl text-gray-900 dark:text-gray-100">Dosya Yöneticisi</DialogTitle>
             </DialogHeader>
             
             {/* Toolbar */}
-            <div className="flex flex-col gap-3 p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+            <div className="flex flex-col gap-3 p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 flex-shrink-0">
               {/* First Row - Upload, Create buttons */}
               <div className="flex gap-2 flex-wrap">
                 <DropdownMenu>
@@ -549,7 +547,7 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
             </div>
 
             {/* Navigation Bar with Breadcrumb and Actions */}
-            <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700 text-sm bg-white dark:bg-gray-900">
+            <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700 text-sm bg-white dark:bg-gray-900 flex-shrink-0">
               {/* Breadcrumb with Home Icon */}
               <div className="flex items-center gap-2">
                 {currentPath.map((path, index) => (
@@ -658,26 +656,102 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
               </div>
             </div>
 
-            {/* File List with proper scrolling */}
-            <div className="flex-1 overflow-hidden">
-              <ScrollArea className="h-full p-4">
-                {isLoading ? (
-                  <FileManagerSkeleton />
-                ) : (
-                  <div className={`grid gap-3 ${
-                    viewMode === 'grid' 
-                      ? (isMobile ? 'grid-cols-2' : 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6')
-                      : 'grid-cols-1'
-                  }`}>
-                    {filteredItems.map((item) => {
-                      const hasChildren = item.children && item.children.length > 0;
-                      const folderColorClass = item.type === 'folder' 
-                        ? (hasChildren ? 'text-blue-500 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500')
-                        : 'text-gray-500 dark:text-gray-400';
-                      
-                      const isSelected = selectedItem?.id === item.id;
+            {/* File List with proper scrolling - Bu kısım flex-1 olacak */}
+            <div className="flex-1 min-h-0 overflow-hidden">
+              <ScrollArea className="h-full">
+                <div className="p-4">
+                  {isLoading ? (
+                    <FileManagerSkeleton />
+                  ) : (
+                    <div className={`grid gap-3 ${
+                      viewMode === 'grid' 
+                        ? (isMobile ? 'grid-cols-2' : 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6')
+                        : 'grid-cols-1'
+                    }`}>
+                      {filteredItems.map((item) => {
+                        const hasChildren = item.children && item.children.length > 0;
+                        const folderColorClass = item.type === 'folder' 
+                          ? (hasChildren ? 'text-blue-500 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500')
+                          : 'text-gray-500 dark:text-gray-400';
+                        
+                        const isSelected = selectedItem?.id === item.id;
 
-                      if (viewMode === 'list') {
+                        if (viewMode === 'list') {
+                          return (
+                            <div
+                              key={`${item.type}-${item.id}`}
+                              draggable
+                              onDragStart={(e) => handleDragStart(e, item)}
+                              onDragOver={(e) => handleDragOver(e, item.id, item.type)}
+                              onDragLeave={handleDragLeave}
+                              onDrop={(e) => handleDrop(e, item.id, item.type)}
+                              className={`flex items-center gap-3 p-3 border rounded-lg cursor-pointer transition-all ${
+                                isSelected 
+                                  ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' 
+                                  : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800'
+                              } ${
+                                draggedItem?.id === item.id ? 'opacity-50 scale-95' : ''
+                              } ${
+                                dragOverItem === item.id && item.type === 'folder' ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' : ''
+                              } bg-white dark:bg-gray-900`}
+                              onClick={() => handleItemClick(item)}
+                              onDoubleClick={() => handleItemDoubleClick(item)}
+                            >
+                              {/* Selection indicator */}
+                              {isSelected && (
+                                <div className="w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center flex-shrink-0">
+                                  <Check size={12} className="text-white" />
+                                </div>
+                              )}
+                              
+                              <div className="flex-shrink-0">
+                                {item.type === 'folder' ? (
+                                  <Folder 
+                                    size={24} 
+                                    className={item.color ? '' : folderColorClass}
+                                    color={item.color || undefined}
+                                  />
+                                ) : (
+                                  <File 
+                                    size={24} 
+                                    className="text-gray-500 dark:text-gray-400"
+                                  />
+                                )}
+                              </div>
+                              
+                              <div className="flex-1 min-w-0">
+                                {isRenaming === item.id ? (
+                                  <Input
+                                    value={newName}
+                                    onChange={(e) => setNewName(e.target.value)}
+                                    onBlur={() => handleRename(item.id, item.type)}
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter') {
+                                        handleRename(item.id, item.type);
+                                      } else if (e.key === 'Escape') {
+                                        setIsRenaming(null);
+                                        setNewName('');
+                                        setOriginalName('');
+                                      }
+                                    }}
+                                    className="h-8 text-sm bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100"
+                                    autoFocus
+                                    onClick={(e) => e.stopPropagation()}
+                                  />
+                                ) : (
+                                  <div className="text-sm font-medium truncate text-gray-900 dark:text-gray-100">
+                                    {item.name}
+                                  </div>
+                                )}
+                              </div>
+                              
+                              <div className="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0">
+                                {item.updated_at || item.created_at || '2025-05-13 15:09:49'}
+                              </div>
+                            </div>
+                          );
+                        }
+
                         return (
                           <div
                             key={`${item.type}-${item.id}`}
@@ -686,7 +760,7 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
                             onDragOver={(e) => handleDragOver(e, item.id, item.type)}
                             onDragLeave={handleDragLeave}
                             onDrop={(e) => handleDrop(e, item.id, item.type)}
-                            className={`flex items-center gap-3 p-3 border rounded-lg cursor-pointer transition-all ${
+                            className={`relative flex flex-col items-center gap-2 p-3 border rounded-lg cursor-pointer transition-all ${
                               isSelected 
                                 ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' 
                                 : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800'
@@ -700,7 +774,7 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
                           >
                             {/* Selection indicator */}
                             {isSelected && (
-                              <div className="w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center flex-shrink-0">
+                              <div className="absolute top-2 right-2 w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center">
                                 <Check size={12} className="text-white" />
                               </div>
                             )}
@@ -708,19 +782,19 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
                             <div className="flex-shrink-0">
                               {item.type === 'folder' ? (
                                 <Folder 
-                                  size={24} 
+                                  size={32} 
                                   className={item.color ? '' : folderColorClass}
                                   color={item.color || undefined}
                                 />
                               ) : (
                                 <File 
-                                  size={24} 
+                                  size={32} 
                                   className="text-gray-500 dark:text-gray-400"
                                 />
                               )}
                             </div>
                             
-                            <div className="flex-1 min-w-0">
+                            <div className="w-full text-center">
                               {isRenaming === item.id ? (
                                 <Input
                                   value={newName}
@@ -735,114 +809,40 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
                                       setOriginalName('');
                                     }
                                   }}
-                                  className="h-8 text-sm bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100"
+                                  className="h-6 text-xs bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 text-center"
                                   autoFocus
                                   onClick={(e) => e.stopPropagation()}
                                 />
                               ) : (
-                                <div className="text-sm font-medium truncate text-gray-900 dark:text-gray-100">
+                                <div className={`text-xs font-medium truncate px-1 py-1 rounded ${
+                                  isSelected ? 'bg-blue-500 text-white' : 'text-gray-900 dark:text-gray-100'
+                                }`}>
                                   {item.name}
                                 </div>
                               )}
                             </div>
-                            
-                            <div className="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0">
-                              {item.updated_at || item.created_at || '2025-05-13 15:09:49'}
-                            </div>
                           </div>
                         );
-                      }
-
-                      return (
-                        <div
-                          key={`${item.type}-${item.id}`}
-                          draggable
-                          onDragStart={(e) => handleDragStart(e, item)}
-                          onDragOver={(e) => handleDragOver(e, item.id, item.type)}
-                          onDragLeave={handleDragLeave}
-                          onDrop={(e) => handleDrop(e, item.id, item.type)}
-                          className={`relative flex flex-col items-center gap-2 p-3 border rounded-lg cursor-pointer transition-all ${
-                            isSelected 
-                              ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' 
-                              : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800'
-                          } ${
-                            draggedItem?.id === item.id ? 'opacity-50 scale-95' : ''
-                          } ${
-                            dragOverItem === item.id && item.type === 'folder' ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' : ''
-                          } bg-white dark:bg-gray-900`}
-                          onClick={() => handleItemClick(item)}
-                          onDoubleClick={() => handleItemDoubleClick(item)}
-                        >
-                          {/* Selection indicator */}
-                          {isSelected && (
-                            <div className="absolute top-2 right-2 w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center">
-                              <Check size={12} className="text-white" />
-                            </div>
-                          )}
-                          
-                          <div className="flex-shrink-0">
-                            {item.type === 'folder' ? (
-                              <Folder 
-                                size={32} 
-                                className={item.color ? '' : folderColorClass}
-                                color={item.color || undefined}
-                              />
-                            ) : (
-                              <File 
-                                size={32} 
-                                className="text-gray-500 dark:text-gray-400"
-                              />
-                            )}
-                          </div>
-                          
-                          <div className="w-full text-center">
-                            {isRenaming === item.id ? (
-                              <Input
-                                value={newName}
-                                onChange={(e) => setNewName(e.target.value)}
-                                onBlur={() => handleRename(item.id, item.type)}
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter') {
-                                    handleRename(item.id, item.type);
-                                  } else if (e.key === 'Escape') {
-                                    setIsRenaming(null);
-                                    setNewName('');
-                                    setOriginalName('');
-                                  }
-                                }}
-                                className="h-6 text-xs bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 text-center"
-                                autoFocus
-                                onClick={(e) => e.stopPropagation()}
-                              />
-                            ) : (
-                              <div className={`text-xs font-medium truncate px-1 py-1 rounded ${
-                                isSelected ? 'bg-blue-500 text-white' : 'text-gray-900 dark:text-gray-100'
-                              }`}>
-                                {item.name}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-                
-                {!isLoading && filteredItems.length === 0 && !searchQuery && (
-                  <div className="text-center py-12 text-gray-500 dark:text-gray-400">
-                    <Folder size={48} className="mx-auto mb-4 text-gray-300 dark:text-gray-600" />
-                    <p>Bu klasör boş</p>
-                    <p className="text-sm mt-1">Yeni dosya veya klasör oluşturabilirsiniz</p>
-                  </div>
-                )}
-                
-                {!isLoading && filteredItems.length === 0 && searchQuery && (
-                  <div className="text-center py-12 text-gray-500 dark:text-gray-400">
-                    <Search size={48} className="mx-auto mb-4 text-gray-300 dark:text-gray-600" />
-                    <p>Arama sonucu bulunamadı</p>
-                    <p className="text-sm mt-1">"{searchQuery}" için sonuç bulunamadı</p>
-                  </div>
-                )}
+                      })}
+                    </div>
+                  )}
+                  
+                  {!isLoading && filteredItems.length === 0 && !searchQuery && (
+                    <div className="text-center py-12 text-gray-500 dark:text-gray-400">
+                      <Folder size={48} className="mx-auto mb-4 text-gray-300 dark:text-gray-600" />
+                      <p>Bu klasör boş</p>
+                      <p className="text-sm mt-1">Yeni dosya veya klasör oluşturabilirsiniz</p>
+                    </div>
+                  )}
+                  
+                  {!isLoading && filteredItems.length === 0 && searchQuery && (
+                    <div className="text-center py-12 text-gray-500 dark:text-gray-400">
+                      <Search size={48} className="mx-auto mb-4 text-gray-300 dark:text-gray-600" />
+                      <p>Arama sonucu bulunamadı</p>
+                      <p className="text-sm mt-1">"{searchQuery}" için sonuç bulunamadı</p>
+                    </div>
+                  )}
+                </div>
               </ScrollArea>
             </div>
           </div>
