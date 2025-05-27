@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -6,7 +5,7 @@ import { History, Folder, FileSignature, User, Download, FolderOpen, LayoutTempl
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
-import { fileService, TreeNode } from '@/services/fileService';
+import { fileService, TreeNode, addCacheListener, removeCacheListener } from '@/services/fileService';
 import SidebarSection from './SidebarSection';
 import RecentDocumentItem from './RecentDocumentItem';
 import FileTreeItem from './FileTreeItem';
@@ -61,6 +60,16 @@ const EditorSidebarContent: React.FC<EditorSidebarContentProps> = ({
   const [fileTree, setFileTree] = useState<TreeNode[]>([]);
   const [isLoadingTree, setIsLoadingTree] = useState(false);
 
+  // Cache listener ekleme
+  useEffect(() => {
+    const listener = (newTree: TreeNode[]) => {
+      setFileTree(newTree);
+    };
+    
+    addCacheListener(listener);
+    return () => removeCacheListener(listener);
+  }, []);
+
   // Load tree structure when component mounts or user authentication changes
   useEffect(() => {
     if (isAuthenticated) {
@@ -71,7 +80,8 @@ const EditorSidebarContent: React.FC<EditorSidebarContentProps> = ({
   const loadFileTree = async () => {
     setIsLoadingTree(true);
     try {
-      const result = await fileService.getFileTree();
+      // Cache'den yükle, yoksa API'den çek
+      const result = await fileService.getFileTree(fileTree.length > 0);
       if (result.success && result.data) {
         setFileTree(result.data);
       } else {
@@ -95,6 +105,8 @@ const EditorSidebarContent: React.FC<EditorSidebarContentProps> = ({
 
   // Function to refresh file tree - will be called from FileManager
   const refreshFileTree = () => {
+    // Cache'i temizle ve yeniden yükle
+    fileService.clearCache();
     loadFileTree();
   };
 

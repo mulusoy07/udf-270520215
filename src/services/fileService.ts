@@ -11,9 +11,99 @@ export interface TreeNode {
   children?: TreeNode[];
 }
 
+// Cache sistemi için global state
+let fileTreeCache: TreeNode[] | null = null;
+let cacheListeners: Array<(tree: TreeNode[]) => void> = [];
+
+// Cache listener ekleme
+export const addCacheListener = (listener: (tree: TreeNode[]) => void) => {
+  cacheListeners.push(listener);
+};
+
+// Cache listener kaldırma
+export const removeCacheListener = (listener: (tree: TreeNode[]) => void) => {
+  cacheListeners = cacheListeners.filter(l => l !== listener);
+};
+
+// Cache'i güncelle ve listeners'ları bilgilendir
+const updateCache = (newTree: TreeNode[]) => {
+  fileTreeCache = newTree;
+  cacheListeners.forEach(listener => listener(newTree));
+};
+
+// Cache'de item bulma helper'ı
+const findItemInTree = (tree: TreeNode[], id: number): { item: TreeNode; parent: TreeNode | null; index: number } | null => {
+  for (let i = 0; i < tree.length; i++) {
+    const item = tree[i];
+    if (item.id === id) {
+      return { item, parent: null, index: i };
+    }
+    if (item.children) {
+      const found = findItemInTree(item.children, id);
+      if (found) {
+        return { item: found.item, parent: item, index: found.index };
+      }
+    }
+  }
+  return null;
+};
+
+// Cache'de item güncelleme
+const updateItemInCache = (id: number, updates: Partial<TreeNode>) => {
+  if (!fileTreeCache) return;
+  
+  const found = findItemInTree(fileTreeCache, id);
+  if (found) {
+    Object.assign(found.item, updates);
+    updateCache([...fileTreeCache]);
+  }
+};
+
+// Cache'den item silme
+const removeItemFromCache = (id: number) => {
+  if (!fileTreeCache) return;
+  
+  const found = findItemInTree(fileTreeCache, id);
+  if (found) {
+    if (found.parent) {
+      found.parent.children = found.parent.children?.filter(child => child.id !== id);
+    } else {
+      fileTreeCache = fileTreeCache.filter(item => item.id !== id);
+    }
+    updateCache([...fileTreeCache]);
+  }
+};
+
+// Cache'e item ekleme
+const addItemToCache = (item: TreeNode, parentId?: number) => {
+  if (!fileTreeCache) return;
+  
+  if (parentId) {
+    const found = findItemInTree(fileTreeCache, parentId);
+    if (found && found.item.type === 'folder') {
+      if (!found.item.children) {
+        found.item.children = [];
+      }
+      found.item.children.push(item);
+      updateCache([...fileTreeCache]);
+    }
+  } else {
+    fileTreeCache.push(item);
+    updateCache([...fileTreeCache]);
+  }
+};
+
 export const fileService = {
   // Get complete file tree structure
-  getFileTree: async (): Promise<{ success: boolean; data?: TreeNode[]; message?: string }> => {
+  getFileTree: async (useCache: boolean = true): Promise<{ success: boolean; data?: TreeNode[]; message?: string }> => {
+    // Cache varsa ve useCache true ise cache'den dön
+    if (useCache && fileTreeCache) {
+      return {
+        success: true,
+        data: fileTreeCache
+      };
+    }
+
     try {
       const response = await fetch(`${API_CONFIG.BASE_URL}/myfiles/tree`, {
         method: 'GET',
@@ -31,6 +121,11 @@ export const fileService = {
       
       if (!response.ok) {
         throw new Error(result.message || 'Dosya yapısı alınamadı');
+      }
+
+      // Cache'i güncelle
+      if (result.success && result.data) {
+        updateCache(result.data);
       }
 
       return result;
@@ -71,6 +166,17 @@ export const fileService = {
         throw new Error(result.message || 'Dosya oluşturulamadı');
       }
 
+      // Cache'e yeni dosyayı ekle
+      if (result.success && result.data) {
+        const newFile: TreeNode = {
+          id: result.data.id,
+          name: result.data.name,
+          type: 'file',
+          color: result.data.color
+        };
+        addItemToCache(newFile, data.folder_id);
+      }
+
       return result;
     } catch (error) {
       console.error('Error creating file:', error);
@@ -108,6 +214,11 @@ export const fileService = {
         throw new Error(result.message || 'Dosya güncellenemedi');
       }
 
+      // Cache'de dosyayı güncelle
+      if (result.success) {
+        updateItemInCache(id, data);
+      }
+
       return result;
     } catch (error) {
       console.error('Error updating file:', error);
@@ -139,6 +250,11 @@ export const fileService = {
         throw new Error(result.message || 'Dosya silinemedi');
       }
 
+      // Cache'den dosyayı kaldır
+      if (result.success) {
+        removeItemFromCache(id);
+      }
+
       return result;
     } catch (error) {
       console.error('Error deleting file:', error);
@@ -148,6 +264,12 @@ export const fileService = {
       };
     }
   },
+
+  // Cache'i temizle
+  clearCache: () => {
+    fileTreeCache = null;
+    updateCache([]);
+  }
 };
 
 // Folder operations
@@ -176,6 +298,18 @@ export const folderService = {
       
       if (!response.ok) {
         throw new Error(result.message || 'Klasör oluşturulamadı');
+      }
+
+      // Cache'e yeni klasörü ekle
+      if (result.success && result.data) {
+        const newFolder: TreeNode = {
+          id: result.data.id,
+          name: result.data.name,
+          type: 'folder',
+          color: result.data.color,
+          children: []
+        };
+        addItemToCache(newFolder, data.parent_id);
       }
 
       return result;
@@ -214,6 +348,11 @@ export const folderService = {
         throw new Error(result.message || 'Klasör güncellenemedi');
       }
 
+      // Cache'de klasörü güncelle
+      if (result.success) {
+        updateItemInCache(id, data);
+      }
+
       return result;
     } catch (error) {
       console.error('Error updating folder:', error);
@@ -243,6 +382,11 @@ export const folderService = {
       
       if (!response.ok) {
         throw new Error(result.message || 'Klasör silinemedi');
+      }
+
+      // Cache'den klasörü kaldır
+      if (result.success) {
+        removeItemFromCache(id);
       }
 
       return result;

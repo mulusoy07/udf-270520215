@@ -9,7 +9,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Skeleton } from '@/components/ui/skeleton';
 import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui/pagination';
 import { useToast } from '@/hooks/use-toast';
-import { fileService, folderService, TreeNode } from '@/services/fileService';
+import { fileService, folderService, TreeNode, addCacheListener, removeCacheListener } from '@/services/fileService';
 
 interface FileManagerProps {
   open: boolean;
@@ -32,7 +32,7 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
   const { toast } = useToast();
 
   const ITEMS_PER_PAGE_DESKTOP = 12;
-  const ITEMS_PER_PAGE_MOBILE = 6;
+  const ITEMS_PER_PAGE_MOBILE = 8; // Mobile için 4x2 grid
   const [isMobile, setIsMobile] = useState(false);
 
   // Detect mobile screen size
@@ -46,6 +46,16 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
+  // Cache listener ekleme
+  useEffect(() => {
+    const listener = (newTree: TreeNode[]) => {
+      setFileTree(newTree);
+    };
+    
+    addCacheListener(listener);
+    return () => removeCacheListener(listener);
+  }, []);
+
   // Load data when component opens
   useEffect(() => {
     if (open) {
@@ -57,7 +67,8 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
   const loadFileTree = async () => {
     setIsLoading(true);
     try {
-      const result = await fileService.getFileTree();
+      // İlk açılışta cache kullanma, sonrasında cache'den al
+      const result = await fileService.getFileTree(fileTree.length > 0);
       if (result.success && result.data) {
         setFileTree(result.data);
       } else {
@@ -76,15 +87,6 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
       });
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  // Function to refresh both FileManager and Sidebar after operations
-  const refreshData = async () => {
-    await loadFileTree();
-    // Trigger sidebar refresh if function exists
-    if ((window as any).refreshSidebarFileTree) {
-      (window as any).refreshSidebarFileTree();
     }
   };
 
@@ -143,7 +145,6 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
     });
 
     if (result.success && result.data) {
-      await refreshData();
       setIsRenaming(result.data.id);
       setNewName('Yeni Klasör');
       toast({
@@ -168,7 +169,6 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
     });
 
     if (result.success && result.data) {
-      await refreshData();
       setIsRenaming(result.data.id);
       setNewName('Yeni Belge.udf');
       toast({
@@ -188,7 +188,6 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
     if (type === 'file') {
       const result = await fileService.updateFile(id, { name: newName });
       if (result.success) {
-        await refreshData();
         toast({
           title: "Başarılı",
           description: "Dosya yeniden adlandırıldı",
@@ -203,7 +202,6 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
     } else {
       const result = await folderService.updateFolder(id, { name: newName });
       if (result.success) {
-        await refreshData();
         toast({
           title: "Başarılı",
           description: "Klasör yeniden adlandırıldı",
@@ -225,7 +223,6 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
     if (type === 'folder') {
       const result = await folderService.updateFolder(id, { color, name });
       if (result.success) {
-        await refreshData();
         toast({
           title: "Başarılı",
           description: "Klasör rengi güncellendi",
@@ -244,7 +241,6 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
     if (type === 'file') {
       const result = await fileService.deleteFile(id);
       if (result.success) {
-        await refreshData();
         toast({
           title: "Başarılı",
           description: "Dosya silindi",
@@ -259,7 +255,6 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
     } else {
       const result = await folderService.deleteFolder(id);
       if (result.success) {
-        await refreshData();
         toast({
           title: "Başarılı",
           description: "Klasör silindi",
@@ -316,7 +311,6 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
           color: draggedItem.color 
         });
         if (result.success) {
-          await refreshData();
           toast({
             title: "Başarılı",
             description: "Dosya taşındı",
@@ -335,7 +329,6 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
           color: draggedItem.color 
         });
         if (result.success) {
-          await refreshData();
           toast({
             title: "Başarılı",
             description: "Klasör taşındı",
@@ -405,15 +398,16 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
     handleDelete(item.id, item.type);
   };
 
+  // Mobile için container height hesaplama
+  const mobileContainerHeight = isMobile ? '320px' : 'auto'; // 4 item * 80px = 320px
+  
   // Skeleton Loading Component with calculated min-height
   const FileManagerSkeleton = () => {
-    const skeletonHeight = isMobile ? 
-      `${itemsPerPage * 80 + 100}px` : // Mobile: item height ~80px + padding
-      `${Math.ceil(itemsPerPage / 6) * 120 + 100}px`; // Desktop: row height ~120px + padding
+    const skeletonHeight = isMobile ? '400px' : '500px';
     
     return (
       <div 
-        className={`grid gap-3 ${isMobile ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6'}`}
+        className={`grid gap-3 ${isMobile ? 'grid-cols-2' : 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6'}`}
         style={{ minHeight: skeletonHeight }}
       >
         {Array.from({ length: itemsPerPage }).map((_, index) => (
@@ -428,7 +422,13 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-6xl max-h-[90vh] bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700">
+      <DialogContent 
+        className="sm:max-w-6xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700"
+        style={{ 
+          minHeight: isMobile ? '600px' : '700px',
+          maxHeight: '90vh'
+        }}
+      >
         <DialogHeader>
           <DialogTitle className="text-xl text-gray-900 dark:text-gray-100">Dosya Yöneticisi</DialogTitle>
         </DialogHeader>
@@ -436,19 +436,19 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
         <div className="flex flex-col h-full">
           {/* Toolbar */}
           <div className="flex flex-col gap-3 p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
-            {/* Buttons Row */}
-            <div className={`flex gap-2 ${isMobile ? 'flex-col' : 'flex-wrap'}`}>
-              <Button size="sm" onClick={handleCreateFolder} className="flex items-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground">
+            {/* Buttons Row - Mobile için yan yana */}
+            <div className={`flex gap-2 ${isMobile ? 'flex-row' : 'flex-wrap'}`}>
+              <Button size="sm" onClick={handleCreateFolder} className="flex items-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground flex-1">
                 <FolderPlus size={16} />
                 Klasör Oluştur
               </Button>
-              <Button size="sm" variant="outline" onClick={handleCreateFile} className="flex items-center gap-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700">
+              <Button size="sm" variant="outline" onClick={handleCreateFile} className="flex items-center gap-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 flex-1">
                 <FilePlus size={16} />
                 Dosya Oluştur
               </Button>
             </div>
             
-            {/* Search Row */}
+            {/* Search Row - Mobile için butonların altında */}
             <div className="relative">
               <Search size={16} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500" />
               <Input
@@ -483,165 +483,168 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
             ) : (
               <>
                 <div 
-                  className={`grid gap-3 ${isMobile ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6'}`}
-                  style={{ minHeight: isMobile ? 
-                    `${itemsPerPage * 80 + 100}px` : 
-                    `${Math.ceil(itemsPerPage / 6) * 120 + 100}px` 
+                  className={`${isMobile ? 'overflow-y-auto' : ''}`}
+                  style={{ 
+                    height: isMobile ? mobileContainerHeight : 'auto',
+                    minHeight: isMobile ? '400px' : '500px'
                   }}
                 >
-                  {currentItems.map((item) => {
-                    const hasChildren = item.children && item.children.length > 0;
-                    const folderColorClass = item.type === 'folder' 
-                      ? (hasChildren ? 'text-blue-500 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500')
-                      : 'text-gray-500 dark:text-gray-400';
+                  <div 
+                    className={`grid gap-3 ${isMobile ? 'grid-cols-2' : 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6'}`}
+                  >
+                    {currentItems.map((item) => {
+                      const hasChildren = item.children && item.children.length > 0;
+                      const folderColorClass = item.type === 'folder' 
+                        ? (hasChildren ? 'text-blue-500 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500')
+                        : 'text-gray-500 dark:text-gray-400';
 
-                    return (
-                      <div
-                        key={`${item.type}-${item.id}`}
-                        draggable
-                        onDragStart={(e) => handleDragStart(e, item)}
-                        onDragOver={(e) => handleDragOver(e, item.id, item.type)}
-                        onDragLeave={handleDragLeave}
-                        onDrop={(e) => handleDrop(e, item.id, item.type)}
-                        className={`flex items-center gap-3 p-3 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer transition-all bg-white dark:bg-gray-900 ${
-                          draggedItem?.id === item.id ? 'opacity-50 scale-95' : ''
-                        } ${
-                          dragOverItem === item.id && item.type === 'folder' ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' : ''
-                        }`}
-                        onClick={() => handleItemClick(item)}
-                      >
-                        <div className="flex-shrink-0">
-                          {item.type === 'folder' ? (
-                            <Folder 
-                              size={32} 
-                              className={item.color ? '' : folderColorClass}
-                              color={item.color || undefined}
-                            />
-                          ) : (
-                            <File 
-                              size={32} 
-                              className="text-gray-500 dark:text-gray-400"
-                            />
-                          )}
-                        </div>
-                        
-                        <div className="flex-1 min-w-0">
-                          {isRenaming === item.id ? (
-                            <Input
-                              value={newName}
-                              onChange={(e) => setNewName(e.target.value)}
-                              onBlur={() => handleRename(item.id, item.type)}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter') {
-                                  handleRename(item.id, item.type);
-                                } else if (e.key === 'Escape') {
-                                  setIsRenaming(null);
-                                  setNewName('');
-                                }
-                              }}
-                              className="h-6 text-xs bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100"
-                              autoFocus
-                              onClick={(e) => e.stopPropagation()}
-                            />
-                          ) : (
-                            <span 
-                              className="text-xs font-medium text-gray-900 dark:text-gray-100 truncate block"
-                              title={item.name}
-                            >
-                              {item.name}
-                            </span>
-                          )}
-                        </div>
-                        
-                        <div className="flex-shrink-0">
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button 
-                                variant="ghost" 
-                                size="icon" 
-                                className="h-6 w-6 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
-                                onClick={handleDropdownClick}
-                              >
-                                <MoreVertical size={12} />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-lg z-50">
-                              <DropdownMenuItem
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleRenameClick(e, item.id, item.name);
+                      return (
+                        <div
+                          key={`${item.type}-${item.id}`}
+                          draggable
+                          onDragStart={(e) => handleDragStart(e, item)}
+                          onDragOver={(e) => handleDragOver(e, item.id, item.type)}
+                          onDragLeave={handleDragLeave}
+                          onDrop={(e) => handleDrop(e, item.id, item.type)}
+                          className={`flex items-center gap-3 p-3 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer transition-all bg-white dark:bg-gray-900 ${
+                            draggedItem?.id === item.id ? 'opacity-50 scale-95' : ''
+                          } ${
+                            dragOverItem === item.id && item.type === 'folder' ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' : ''
+                          }`}
+                          onClick={() => handleItemClick(item)}
+                        >
+                          <div className="flex-shrink-0">
+                            {item.type === 'folder' ? (
+                              <Folder 
+                                size={32} 
+                                className={item.color ? '' : folderColorClass}
+                                color={item.color || undefined}
+                              />
+                            ) : (
+                              <File 
+                                size={32} 
+                                className="text-gray-500 dark:text-gray-400"
+                              />
+                            )}
+                          </div>
+                          
+                          <div className="flex-1 min-w-0">
+                            {isRenaming === item.id ? (
+                              <Input
+                                value={newName}
+                                onChange={(e) => setNewName(e.target.value)}
+                                onBlur={() => handleRename(item.id, item.type)}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    handleRename(item.id, item.type);
+                                  } else if (e.key === 'Escape') {
+                                    setIsRenaming(null);
+                                    setNewName('');
+                                  }
                                 }}
-                                className="text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
+                                className="h-6 text-xs bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100"
+                                autoFocus
+                                onClick={(e) => e.stopPropagation()}
+                              />
+                            ) : (
+                              <span 
+                                className="text-xs font-medium text-gray-900 dark:text-gray-100 truncate block"
+                                title={item.name}
                               >
-                                <Edit3 size={14} className="mr-2" />
-                                Yeniden Adlandır
-                              </DropdownMenuItem>
+                                {item.name}
+                              </span>
+                            )}
+                          </div>
+                          
+                          <div className="flex-shrink-0">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button 
+                                  variant="ghost" 
+                                  size="icon" 
+                                  className="h-6 w-6 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
+                                  onClick={handleDropdownClick}
+                                >
+                                  <MoreVertical size={12} />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-lg z-50">
+                                <DropdownMenuItem
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleRenameClick(e, item.id, item.name);
+                                  }}
+                                  className="text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
+                                >
+                                  <Edit3 size={14} className="mr-2" />
+                                  Yeniden Adlandır
+                                </DropdownMenuItem>
 
-                              {item.type === 'folder' && (
+                                {item.type === 'folder' && (
+                                  <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                      <DropdownMenuItem 
+                                        onSelect={(e) => e.preventDefault()} 
+                                        className="text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
+                                      >
+                                        <Palette size={14} className="mr-2" />
+                                        Renk Seç
+                                      </DropdownMenuItem>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent 
+                                      className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700"
+                                    >
+                                      <AlertDialogHeader>
+                                        <AlertDialogTitle className="text-gray-900 dark:text-gray-100">Renk Seç</AlertDialogTitle>
+                                        <AlertDialogDescription className="text-gray-600 dark:text-gray-400">
+                                          {item.name} için bir renk seçin.
+                                        </AlertDialogDescription>
+                                      </AlertDialogHeader>
+                                      <div className="grid grid-cols-8 gap-2 p-4">
+                                        {['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#6b7280', '#000000'].map((color) => (
+                                          <button
+                                            key={color}
+                                            className="w-8 h-8 rounded-full border-2 border-gray-300 hover:border-gray-500"
+                                            style={{ backgroundColor: color }}
+                                            onClick={(e) => handleColorChangeClick(e, item, color)}
+                                          />
+                                        ))}
+                                      </div>
+                                      <AlertDialogFooter>
+                                        <AlertDialogCancel 
+                                          className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600"
+                                        >
+                                          İptal
+                                        </AlertDialogCancel>
+                                      </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                  </AlertDialog>
+                                )}
+                                
                                 <AlertDialog>
                                   <AlertDialogTrigger asChild>
                                     <DropdownMenuItem 
                                       onSelect={(e) => e.preventDefault()} 
                                       className="text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
                                     >
-                                      <Palette size={14} className="mr-2" />
-                                      Renk Seç
+                                      <Trash2 size={14} className="mr-2" />
+                                      Sil
                                     </DropdownMenuItem>
                                   </AlertDialogTrigger>
                                   <AlertDialogContent 
                                     className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700"
                                   >
                                     <AlertDialogHeader>
-                                      <AlertDialogTitle className="text-gray-900 dark:text-gray-100">Renk Seç</AlertDialogTitle>
+                                      <AlertDialogTitle className="text-gray-900 dark:text-gray-100">Silmeyi Onayla</AlertDialogTitle>
                                       <AlertDialogDescription className="text-gray-600 dark:text-gray-400">
-                                        {item.name} için bir renk seçin.
+                                        "{item.name}" öğesini silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.
                                       </AlertDialogDescription>
                                     </AlertDialogHeader>
-                                    <div className="grid grid-cols-8 gap-2 p-4">
-                                      {['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#6b7280', '#000000'].map((color) => (
-                                        <button
-                                          key={color}
-                                          className="w-8 h-8 rounded-full border-2 border-gray-300 hover:border-gray-500"
-                                          style={{ backgroundColor: color }}
-                                          onClick={(e) => handleColorChangeClick(e, item, color)}
-                                        />
-                                      ))}
-                                    </div>
                                     <AlertDialogFooter>
                                       <AlertDialogCancel 
                                         className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600"
                                       >
                                         İptal
-                                      </AlertDialogCancel>
-                                    </AlertDialogFooter>
-                                  </AlertDialogContent>
-                                </AlertDialog>
-                              )}
-                              
-                              <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                  <DropdownMenuItem 
-                                    onSelect={(e) => e.preventDefault()} 
-                                    className="text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
-                                  >
-                                    <Trash2 size={14} className="mr-2" />
-                                    Sil
-                                  </DropdownMenuItem>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent 
-                                  className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700"
-                                >
-                                  <AlertDialogHeader>
-                                    <AlertDialogTitle className="text-gray-900 dark:text-gray-100">Silmeyi Onayla</AlertDialogTitle>
-                                    <AlertDialogDescription className="text-gray-600 dark:text-gray-400">
-                                      "{item.name}" öğesini silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.
-                                    </AlertDialogDescription>
-                                  </AlertDialogHeader>
-                                  <AlertDialogFooter>
-                                    <AlertDialogCancel 
-                                      className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600"
-                                    >
-                                      İptal
                                     </AlertDialogCancel>
                                     <AlertDialogAction
                                       onClick={(e) => handleDeleteClick(e, item)}
@@ -660,8 +663,8 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
                   })}
                 </div>
 
-                {/* Pagination */}
-                {totalPages > 1 && (
+                {/* Pagination - sadece mobile değilse göster */}
+                {totalPages > 1 && !isMobile && (
                   <div className="mt-6 flex justify-center">
                     <Pagination>
                       <PaginationContent>
