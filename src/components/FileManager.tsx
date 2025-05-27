@@ -22,8 +22,6 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
   const [newName, setNewName] = useState('');
   const [originalName, setOriginalName] = useState('');
   const [selectedItem, setSelectedItem] = useState<TreeNode | null>(null);
-  const [draggedItem, setDraggedItem] = useState<{ id: number; type: 'file' | 'folder'; name: string; color?: string } | null>(null);
-  const [dragOverItem, setDragOverItem] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [fileTree, setFileTree] = useState<TreeNode[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -377,91 +375,6 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
     loadFileTree(false);
   };
 
-  // Drag and drop handlers
-  const handleDragStart = (e: React.DragEvent, item: TreeNode) => {
-    setDraggedItem({ 
-      id: item.id, 
-      type: item.type, 
-      name: item.name,
-      color: item.color 
-    });
-    e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/plain', '');
-  };
-
-  const handleDragOver = (e: React.DragEvent, targetId: number, targetType: 'file' | 'folder') => {
-    e.preventDefault();
-    if (targetType === 'folder' && draggedItem && draggedItem.id !== targetId) {
-      e.dataTransfer.dropEffect = 'move';
-      setDragOverItem(targetId);
-    } else {
-      e.dataTransfer.dropEffect = 'none';
-    }
-  };
-
-  const handleDragLeave = () => {
-    setDragOverItem(null);
-  };
-
-  const handleDrop = async (e: React.DragEvent, targetId: number, targetType: 'file' | 'folder') => {
-    e.preventDefault();
-    setDragOverItem(null);
-    
-    if (!draggedItem || draggedItem.id === targetId || targetType !== 'folder') {
-      setDraggedItem(null);
-      return;
-    }
-
-    try {
-      if (draggedItem.type === 'file') {
-        const result = await fileService.updateFile(draggedItem.id, { 
-          folder_id: targetId,
-          name: draggedItem.name,
-          color: draggedItem.color 
-        });
-        if (result.success) {
-          toast({
-            title: "Başarılı",
-            description: "Dosya taşındı",
-          });
-        } else {
-          toast({
-            title: "Hata",
-            description: result.message || "Dosya taşınamadı",
-            variant: "destructive"
-          });
-        }
-      } else {
-        const result = await folderService.updateFolder(draggedItem.id, { 
-          parent_id: targetId,
-          name: draggedItem.name,
-          color: draggedItem.color 
-        });
-        if (result.success) {
-          toast({
-            title: "Başarılı",
-            description: "Klasör taşındı",
-          });
-        } else {
-          toast({
-            title: "Hata",
-            description: result.message || "Klasör taşınamadı",
-            variant: "destructive"
-          });
-        }
-      }
-    } catch (error) {
-      console.error('Error moving item:', error);
-      toast({
-        title: "Hata",
-        description: "Taşıma işlemi başarısız",
-        variant: "destructive"
-      });
-    }
-    
-    setDraggedItem(null);
-  };
-
   const FileManagerSkeleton = () => {
     return (
       <div className={`grid gap-3 ${viewMode === 'grid' ? (isMobile ? 'grid-cols-2' : 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6') : 'grid-cols-1'}`}>
@@ -493,170 +406,308 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
               <DialogTitle className="text-xl text-gray-900 dark:text-gray-100">Dosya Yöneticisi</DialogTitle>
             </DialogHeader>
             
-            {/* Toolbar */}
-            <div className="flex flex-col gap-3 p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 flex-shrink-0">
-              {/* First Row - Upload, Create buttons */}
-              <div className="flex gap-2 flex-wrap">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button size="sm" className="flex items-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground">
-                      <Upload size={16} />
-                      Dosya Yükle
-                      <ChevronDown size={14} />
+            {/* Toolbar - Mobile Optimized */}
+            {isMobile ? (
+              <div className="flex flex-col gap-3 p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 flex-shrink-0">
+                {/* Top Row - Upload Button and Icons */}
+                <div className="flex items-center gap-2">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-md text-sm font-medium">
+                        <Upload size={16} className="mr-2" />
+                        Upload
+                        <ChevronDown size={14} className="ml-2" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+                      <DropdownMenuItem onClick={handleUploadFromLocal} className="text-gray-700 dark:text-gray-200">
+                        <Upload size={14} className="mr-2" />
+                        Yerel Dosyadan Yükle
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={handleUploadFromURL} className="text-gray-700 dark:text-gray-200">
+                        <Upload size={14} className="mr-2" />
+                        URL'den Yükle
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                  
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    onClick={handleCreateFolder}
+                    className="p-2.5 border border-gray-300 dark:border-gray-600"
+                  >
+                    <FolderPlus size={16} />
+                  </Button>
+                  
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    onClick={handleRefresh}
+                    className="p-2.5 border border-gray-300 dark:border-gray-600"
+                  >
+                    <RefreshCw size={16} />
+                  </Button>
+                </div>
+                
+                {/* Search Bar */}
+                <div className="relative">
+                  <Search size={16} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500" />
+                  <Input
+                    type="text"
+                    placeholder="Search in current folder"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-10 bg-white dark:bg-gray-900 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100"
+                  />
+                </div>
+                
+                {/* Bottom Row - Filters and View */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Button variant="ghost" size="sm" className="text-blue-600 dark:text-blue-400 text-sm">
+                      All media
                     </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start" className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
-                    <DropdownMenuItem onClick={handleUploadFromLocal} className="text-gray-700 dark:text-gray-200">
-                      <Upload size={14} className="mr-2" />
-                      Yerel Dosyadan Yükle
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={handleUploadFromURL} className="text-gray-700 dark:text-gray-200">
-                      <Upload size={14} className="mr-2" />
-                      URL'den Yükle
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-
-                <Button size="sm" variant="outline" onClick={handleCreateFolder} className="flex items-center gap-2">
-                  <FolderPlus size={16} />
-                  Klasör Oluştur
-                </Button>
-
-                <Button size="sm" variant="outline" onClick={handleCreateFile} className="flex items-center gap-2">
-                  <FilePlus size={16} />
-                  Dosya Oluştur
-                </Button>
-
-                <Button size="sm" variant="outline" onClick={handleRefresh} className="flex items-center gap-2">
-                  <RefreshCw size={16} />
-                  Yenile
-                </Button>
+                  </div>
+                  
+                  <div className="flex items-center gap-2">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button size="sm" variant="outline" className="text-sm">
+                          <ArrowUpDown size={14} className="mr-1" />
+                          Sort
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+                        <DropdownMenuItem onClick={() => { setSortBy('name'); setSortOrder('asc'); }} className="text-gray-700 dark:text-gray-200">
+                          Dosya Adı - A'dan Z'ye
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => { setSortBy('date'); setSortOrder('desc'); }} className="text-gray-700 dark:text-gray-200">
+                          Tarih - Yeniden Eskiye
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                    
+                    <DropdownMenu open={isActionsOpen} onOpenChange={setIsActionsOpen}>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={!selectedItem}
+                          className="text-sm"
+                        >
+                          <MoreVertical size={14} className="mr-1" />
+                          İşlemler
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+                        <DropdownMenuItem onClick={handleRenameClick} className="text-gray-700 dark:text-gray-200">
+                          <Edit3 size={14} className="mr-2" />
+                          Yeniden Adlandır
+                        </DropdownMenuItem>
+                        {selectedItem?.type === 'folder' && (
+                          <DropdownMenuItem 
+                            onSelect={(e) => {
+                              e.preventDefault();
+                              setIsColorPaletteOpen(true);
+                            }}
+                            className="text-gray-700 dark:text-gray-200"
+                          >
+                            <Palette size={14} className="mr-2" />
+                            Renk Seç
+                          </DropdownMenuItem>
+                        )}
+                        <DropdownMenuItem onClick={handleDeleteClick} className="text-gray-700 dark:text-gray-200">
+                          <Trash2 size={14} className="mr-2" />
+                          Sil
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                    
+                    <div className="flex border border-gray-300 dark:border-gray-600 rounded overflow-hidden">
+                      <Button
+                        size="sm"
+                        variant={viewMode === 'grid' ? 'default' : 'ghost'}
+                        onClick={() => setViewMode('grid')}
+                        className="px-2 rounded-none border-0"
+                      >
+                        <Grid3X3 size={16} />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant={viewMode === 'list' ? 'default' : 'ghost'}
+                        onClick={() => setViewMode('list')}
+                        className="px-2 rounded-none border-0"
+                      >
+                        <List size={16} />
+                      </Button>
+                    </div>
+                  </div>
+                </div>
               </div>
-              
-              {/* Second Row - Search */}
-              <div className="relative">
-                <Search size={16} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500" />
-                <Input
-                  type="text"
-                  placeholder="Dosya veya klasör ara..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 bg-white dark:bg-gray-900 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100"
-                />
+            ) : (
+              <div className="flex flex-col gap-3 p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 flex-shrink-0">
+                {/* Desktop Layout - Keep existing */}
+                <div className="flex gap-2 flex-wrap">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button size="sm" className="flex items-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground">
+                        <Upload size={16} />
+                        Dosya Yükle
+                        <ChevronDown size={14} />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+                      <DropdownMenuItem onClick={handleUploadFromLocal} className="text-gray-700 dark:text-gray-200">
+                        <Upload size={14} className="mr-2" />
+                        Yerel Dosyadan Yükle
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={handleUploadFromURL} className="text-gray-700 dark:text-gray-200">
+                        <Upload size={14} className="mr-2" />
+                        URL'den Yükle
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+
+                  <Button size="sm" variant="outline" onClick={handleCreateFolder} className="flex items-center gap-2">
+                    <FolderPlus size={16} />
+                    Klasör Oluştur
+                  </Button>
+
+                  <Button size="sm" variant="outline" onClick={handleCreateFile} className="flex items-center gap-2">
+                    <FilePlus size={16} />
+                    Dosya Oluştur
+                  </Button>
+
+                  <Button size="sm" variant="outline" onClick={handleRefresh} className="flex items-center gap-2">
+                    <RefreshCw size={16} />
+                    Yenile
+                  </Button>
+                </div>
+                
+                <div className="relative">
+                  <Search size={16} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500" />
+                  <Input
+                    type="text"
+                    placeholder="Dosya veya klasör ara..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-10 bg-white dark:bg-gray-900 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100"
+                  />
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Navigation Bar with Breadcrumb and Actions */}
             <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700 text-sm bg-white dark:bg-gray-900 flex-shrink-0">
-              {/* Breadcrumb with Home Icon */}
-              <div className="flex items-center gap-2">
+              {/* Breadcrumb */}
+              <div className="flex items-center gap-2 min-w-0 flex-1">
                 {currentPath.map((path, index) => (
                   <React.Fragment key={index}>
-                    {index === 0 && <Home size={16} className="text-gray-500 dark:text-gray-400" />}
+                    {index === 0 && <Home size={16} className="text-gray-500 dark:text-gray-400 flex-shrink-0" />}
                     <button
-                      className="text-blue-600 dark:text-blue-400 hover:underline"
+                      className="text-blue-600 dark:text-blue-400 hover:underline truncate"
                       onClick={() => handleBreadcrumbClick(index)}
                     >
                       {path}
                     </button>
-                    {index < currentPath.length - 1 && <span className="text-gray-400 dark:text-gray-500">/</span>}
+                    {index < currentPath.length - 1 && <span className="text-gray-400 dark:text-gray-500 flex-shrink-0">/</span>}
                   </React.Fragment>
                 ))}
               </div>
 
-              {/* Right Side Actions */}
-              <div className="flex items-center gap-2">
-                {/* Actions Button */}
-                <DropdownMenu open={isActionsOpen} onOpenChange={setIsActionsOpen}>
-                  <DropdownMenuTrigger asChild>
+              {/* Desktop Actions */}
+              {!isMobile && (
+                <div className="flex items-center gap-2">
+                  <DropdownMenu open={isActionsOpen} onOpenChange={setIsActionsOpen}>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={!selectedItem}
+                        className="flex items-center gap-2"
+                      >
+                        <MoreVertical size={16} />
+                        İşlemler
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+                      <DropdownMenuItem onClick={handleRenameClick} className="text-gray-700 dark:text-gray-200">
+                        <Edit3 size={14} className="mr-2" />
+                        Yeniden Adlandır
+                      </DropdownMenuItem>
+
+                      {selectedItem?.type === 'folder' && (
+                        <DropdownMenuItem 
+                          onSelect={(e) => {
+                            e.preventDefault();
+                            setIsColorPaletteOpen(true);
+                          }}
+                          className="text-gray-700 dark:text-gray-200"
+                        >
+                          <Palette size={14} className="mr-2" />
+                          Renk Seç
+                        </DropdownMenuItem>
+                      )}
+                      
+                      <DropdownMenuItem onClick={handleDeleteClick} className="text-gray-700 dark:text-gray-200">
+                        <Trash2 size={14} className="mr-2" />
+                        Sil
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button size="sm" variant="outline" className="flex items-center gap-2">
+                        <ArrowUpDown size={16} />
+                        Sırala
+                        <ChevronDown size={14} />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+                      <DropdownMenuItem onClick={() => { setSortBy('name'); setSortOrder('asc'); }} className="text-gray-700 dark:text-gray-200">
+                        <FileText size={14} className="mr-2" />
+                        Dosya Adı - A'dan Z'ye
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => { setSortBy('name'); setSortOrder('desc'); }} className="text-gray-700 dark:text-gray-200">
+                        <FileText size={14} className="mr-2" />
+                        Dosya Adı - Z'den A'ya
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => { setSortBy('date'); setSortOrder('asc'); }} className="text-gray-700 dark:text-gray-200">
+                        <Calendar size={14} className="mr-2" />
+                        Yükleme Tarihi - Eskiden Yeniye
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => { setSortBy('date'); setSortOrder('desc'); }} className="text-gray-700 dark:text-gray-200">
+                        <Calendar size={14} className="mr-2" />
+                        Yükleme Tarihi - Yeniden Eskiye
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+
+                  <div className="flex border border-gray-300 dark:border-gray-600 rounded overflow-hidden">
                     <Button
                       size="sm"
-                      variant="outline"
-                      disabled={!selectedItem}
-                      className="flex items-center gap-2"
+                      variant={viewMode === 'grid' ? 'default' : 'ghost'}
+                      onClick={() => setViewMode('grid')}
+                      className="px-2 rounded-none border-0"
                     >
-                      <MoreVertical size={16} />
-                      Actions
+                      <Grid3X3 size={16} />
                     </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
-                    <DropdownMenuItem onClick={handleRenameClick} className="text-gray-700 dark:text-gray-200">
-                      <Edit3 size={14} className="mr-2" />
-                      Yeniden Adlandır
-                    </DropdownMenuItem>
-
-                    {selectedItem?.type === 'folder' && (
-                      <DropdownMenuItem 
-                        onSelect={(e) => {
-                          e.preventDefault();
-                          setIsColorPaletteOpen(true);
-                        }}
-                        className="text-gray-700 dark:text-gray-200"
-                      >
-                        <Palette size={14} className="mr-2" />
-                        Renk Seç
-                      </DropdownMenuItem>
-                    )}
-                    
-                    <DropdownMenuItem onClick={handleDeleteClick} className="text-gray-700 dark:text-gray-200">
-                      <Trash2 size={14} className="mr-2" />
-                      Sil
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-
-                {/* Sort Dropdown */}
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button size="sm" variant="outline" className="flex items-center gap-2">
-                      <ArrowUpDown size={16} />
-                      Sırala
-                      <ChevronDown size={14} />
+                    <Button
+                      size="sm"
+                      variant={viewMode === 'list' ? 'default' : 'ghost'}
+                      onClick={() => setViewMode('list')}
+                      className="px-2 rounded-none border-0"
+                    >
+                      <List size={16} />
                     </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
-                    <DropdownMenuItem onClick={() => { setSortBy('name'); setSortOrder('asc'); }} className="text-gray-700 dark:text-gray-200">
-                      <FileText size={14} className="mr-2" />
-                      Dosya Adı - A'dan Z'ye
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => { setSortBy('name'); setSortOrder('desc'); }} className="text-gray-700 dark:text-gray-200">
-                      <FileText size={14} className="mr-2" />
-                      Dosya Adı - Z'den A'ya
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => { setSortBy('date'); setSortOrder('asc'); }} className="text-gray-700 dark:text-gray-200">
-                      <Calendar size={14} className="mr-2" />
-                      Yükleme Tarihi - Eskiden Yeniye
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => { setSortBy('date'); setSortOrder('desc'); }} className="text-gray-700 dark:text-gray-200">
-                      <Calendar size={14} className="mr-2" />
-                      Yükleme Tarihi - Yeniden Eskiye
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-
-                {/* View Mode Toggle */}
-                <div className="flex border border-gray-300 dark:border-gray-600 rounded overflow-hidden">
-                  <Button
-                    size="sm"
-                    variant={viewMode === 'grid' ? 'default' : 'ghost'}
-                    onClick={() => setViewMode('grid')}
-                    className="px-2 rounded-none border-0"
-                  >
-                    <Grid3X3 size={16} />
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant={viewMode === 'list' ? 'default' : 'ghost'}
-                    onClick={() => setViewMode('list')}
-                    className="px-2 rounded-none border-0"
-                  >
-                    <List size={16} />
-                  </Button>
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
 
-            {/* File List with proper scrolling - Bu kısım flex-1 olacak */}
+            {/* File List with proper scrolling */}
             <div className="flex-1 min-h-0 overflow-hidden">
               <ScrollArea className="h-full">
                 <div className="p-4">
@@ -680,24 +731,14 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
                           return (
                             <div
                               key={`${item.type}-${item.id}`}
-                              draggable
-                              onDragStart={(e) => handleDragStart(e, item)}
-                              onDragOver={(e) => handleDragOver(e, item.id, item.type)}
-                              onDragLeave={handleDragLeave}
-                              onDrop={(e) => handleDrop(e, item.id, item.type)}
                               className={`flex items-center gap-3 p-3 border rounded-lg cursor-pointer transition-all ${
                                 isSelected 
                                   ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' 
                                   : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800'
-                              } ${
-                                draggedItem?.id === item.id ? 'opacity-50 scale-95' : ''
-                              } ${
-                                dragOverItem === item.id && item.type === 'folder' ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' : ''
                               } bg-white dark:bg-gray-900`}
                               onClick={() => handleItemClick(item)}
                               onDoubleClick={() => handleItemDoubleClick(item)}
                             >
-                              {/* Selection indicator */}
                               {isSelected && (
                                 <div className="w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center flex-shrink-0">
                                   <Check size={12} className="text-white" />
@@ -755,24 +796,14 @@ const FileManager: React.FC<FileManagerProps> = ({ open, onOpenChange }) => {
                         return (
                           <div
                             key={`${item.type}-${item.id}`}
-                            draggable
-                            onDragStart={(e) => handleDragStart(e, item)}
-                            onDragOver={(e) => handleDragOver(e, item.id, item.type)}
-                            onDragLeave={handleDragLeave}
-                            onDrop={(e) => handleDrop(e, item.id, item.type)}
                             className={`relative flex flex-col items-center gap-2 p-3 border rounded-lg cursor-pointer transition-all ${
                               isSelected 
                                 ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' 
                                 : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800'
-                            } ${
-                              draggedItem?.id === item.id ? 'opacity-50 scale-95' : ''
-                            } ${
-                              dragOverItem === item.id && item.type === 'folder' ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' : ''
                             } bg-white dark:bg-gray-900`}
                             onClick={() => handleItemClick(item)}
                             onDoubleClick={() => handleItemDoubleClick(item)}
                           >
-                            {/* Selection indicator */}
                             {isSelected && (
                               <div className="absolute top-2 right-2 w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center">
                                 <Check size={12} className="text-white" />
